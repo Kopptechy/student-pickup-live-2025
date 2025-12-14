@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Reception interface for student pickup sign-out">
+    <title>Reception - Student Pickup</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .reception-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: var(--spacing-lg);
+        }
+
+        .sign-out-form {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .student-list-container {
+            border: 2px solid var(--border);
+            border-radius: var(--radius-lg);
+            height: 400px;
+            overflow-y: auto;
+            background: var(--bg-background);
+            margin-bottom: var(--spacing-lg);
+            position: relative;
+        }
+
+        .student-list-item {
+            display: flex;
+            align-items: center;
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+
+        .student-list-item:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .student-list-item:last-child {
+            border-bottom: none;
+        }
+
+        .student-list-item.selected {
+            background-color: rgba(37, 99, 235, 0.1);
+        }
+
+        .student-checkbox {
+            width: 20px;
+            height: 20px;
+            margin-right: var(--spacing-md);
+            accent-color: var(--primary);
+        }
+
+        .student-info {
+            flex: 1;
+        }
+
+        .student-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: block;
+        }
+
+        .student-class {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .class-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 8px;
+            text-transform: uppercase;
+        }
+
+        .badge-blue {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-green {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-red {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .search-container {
+            margin-bottom: var(--spacing-md);
+            position: relative;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        #studentSearch {
+            padding-left: 40px;
+        }
+
+        .selection-count {
+            background: var(--primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            margin-left: 8px;
+        }
+
+        .queue-section {
+            margin-top: var(--spacing-xl);
+        }
+
+        .queue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .queue-list {
+            display: grid;
+            gap: var(--spacing-sm);
+        }
+
+        .queue-item {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all var(--transition-normal);
+        }
+
+        .queue-item:hover {
+            border-color: var(--border-light);
+            transform: translateX(5px);
+        }
+
+        .queue-item-info h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .queue-item-meta {
+            display: flex;
+            gap: var(--spacing-md);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .waiting-time {
+            font-weight: 600;
+        }
+
+        .waiting-time.warning {
+            color: var(--warning);
+        }
+
+        .waiting-time.danger {
+            color: var(--danger);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--spacing-xl);
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: var(--spacing-md);
+            opacity: 0.5;
+        }
+
+        .success-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--gradient-success);
+            color: white;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            animation: slideInRight 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+            z-index: 1000;
+            font-weight: 600;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            color: var(--text-secondary);
+            text-decoration: none;
+            margin-bottom: var(--spacing-lg);
+            transition: color var(--transition-fast);
+        }
+
+        .back-link:hover {
+            color: var(--primary);
+        }
+
+        /* Spinner */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, .3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+            vertical-align: text-bottom;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* MOBILE RESPONSIVENESS */
+        @media (max-width: 768px) {
+            .reception-container {
+                padding: var(--spacing-sm);
+            }
+
+            .sign-out-form {
+                padding: var(--spacing-md);
+            }
+
+            .pickup-input-group {
+                flex-direction: column !important;
+            }
+
+            .pickup-input-group input,
+            .pickup-input-group button {
+                width: 100% !important;
+                max-width: none !important;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            /* Merge Grid Response */
+            .merge-grid {
+                grid-template-columns: 1fr !important;
+                justify-items: center;
+            }
+
+            .merge-arrow {
+                transform: rotate(90deg);
+                padding-bottom: 0 !important;
+                padding-top: 0.5rem;
+            }
+
+            .merge-grid>div {
+                width: 100%;
+            }
+
+            .merge-grid button {
+                width: 100%;
+                margin-top: 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="reception-container">
+
+
+        <div class="header">
+            <h1>📝 Reception Sign-Out</h1>
+        </div>
+
+        <div class="sign-out-form">
+            <h2 class="mb-md">Sign Out Students</h2>
+
+            <!-- Pickup Code Section -->
+            <!-- Pickup Code Section -->
+            <div
+                style="background: #eef2ff; border: 2px dashed #4f46e5; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;">
+                <label style="display:block; margin-bottom:0.5rem; color:#4f46e5; font-weight:700;">ENTER 6-DIGIT PICKUP
+                    CODE (Parent App)</label>
+                <div class="pickup-input-group" style="display:flex; gap:10px;">
+                    <input type="text" id="pickupCodeInput" class="form-control form-control-lg"
+                        placeholder="e.g. 123 456"
+                        style="font-size:1.5rem; text-align:center; letter-spacing:0.2em; font-family:monospace; max-width: 300px;">
+                    <button type="button" class="btn btn-primary" onclick="verifyPickupCode()">Validate & Sign
+                        Out</button>
+                    <button type="button" class="btn btn-secondary"
+                        onclick="document.getElementById('pickupCodeInput').value=''">Clear</button>
+                </div>
+            </div>
+
+            <hr style="border:0; border-top:1px solid var(--border); margin: 2rem 0;">
+            <h3>Or Select Manually</h3>
+
+            <form id="signOutForm">
+                <div class="form-group mb-md">
+                    <label class="form-label" for="yearSelect">Select Year Group</label>
+                    <select id="yearSelect" class="form-control form-control-lg" required>
+                        <option value="">Select Year...</option>
+                    </select>
+                </div>
+
+                <div id="studentSelectionArea" style="display: none;">
+                    <div class="search-container">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="studentSearch" class="form-control" placeholder="Search student name...">
+                    </div>
+
+                    <div class="flex justify-between items-center mb-sm">
+                        <label class="form-label mb-0">Select Students <span id="selectedCount" class="selection-count"
+                                style="display: none;">0</span></label>
+                        <button type="button" class="btn btn-sm btn-secondary" id="selectAllBtn">Select All</button>
+                    </div>
+
+                    <div class="student-list-container" id="studentList">
+                        <!-- Students will be populated here -->
+                    </div>
+
+                    <button type="submit" class="btn btn-success btn-xl w-full" id="submitBtn" disabled>
+                        Sign Out Selected Students
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="queue-section">
+            <div class="queue-header">
+                <h2>📋 Current Pickup Queue</h2>
+                <span class="badge badge-success" id="queueCount">0 pending</span>
+            </div>
+
+            <div class="queue-list" id="queueList">
+                <div class="empty-state">
+                    <div class="empty-state-icon">✅</div>
+                    <p>No pending pickups</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Class Merge Section -->
+        <div class="queue-section" style="margin-top: 2rem;">
+            <div class="queue-header" style="cursor: pointer;" onclick="toggleMergeSection()">
+                <h2>🔀 Merge Classes</h2>
+                <span id="mergeToggle" style="font-size: 1.5rem;">▼</span>
+            </div>
+
+            <div id="mergeSection" style="display: none; padding-top: 1rem;">
+                <div
+                    style="background: var(--bg-card); border: 2px solid var(--border); border-radius: 12px; padding: 1.5rem;">
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.9rem;">When a teacher is
+                        absent, merge their class into another classroom's display.</p>
+
+                    <div class="merge-grid"
+                        style="display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 1rem; align-items: end;">
+                        <!-- Source -->
+                        <div>
+                            <label class="form-label">Source (Absent)</label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <select id="mergeSourceYear" class="form-control" onchange="loadMergeClasses('source')">
+                                    <option value="">Year</option>
+                                </select>
+                                <select id="mergeSourceClass" class="form-control">
+                                    <option value="">Class</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="merge-arrow" style="font-size: 1.5rem; padding-bottom: 0.5rem;">→</div>
+
+                        <!-- Host -->
+                        <div>
+                            <label class="form-label">Host (Active)</label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <select id="mergeHostYear" class="form-control" onchange="loadMergeClasses('host')">
+                                    <option value="">Year</option>
+                                </select>
+                                <select id="mergeHostClass" class="form-control">
+                                    <option value="">Class</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="createMerge()">Merge</button>
+                    </div>
+                </div>
+
+                <!-- Active Merges List -->
+                <div style="margin-top: 1.5rem;">
+                    <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Active Merges</h3>
+                    <div id="activeMergesList">
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">No active merges</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allStudentsInYear = [];
+        let selectedStudentIds = new Set();
+        let pendingPickups = [];
+
+        // Load years on page load
+        async function loadYears() {
+            try {
+                const response = await fetch('/api/years');
+                const years = await response.json();
+
+                const yearSelect = document.getElementById('yearSelect');
+                years.forEach(({ year }) => {
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = `Year ${year}`;
+                    yearSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading years:', error);
+            }
+        }
+
+        // Load students when year is selected
+        document.getElementById('yearSelect').addEventListener('change', async (e) => {
+            const year = e.target.value;
+            const selectionArea = document.getElementById('studentSelectionArea');
+            const studentList = document.getElementById('studentList');
+
+            // Reset state
+            selectedStudentIds.clear();
+            updateSubmitButton();
+            document.getElementById('studentSearch').value = '';
+
+            if (!year) {
+                selectionArea.style.display = 'none';
+                return;
+            }
+
+            // Show loading state
+            selectionArea.style.display = 'block';
+            studentList.innerHTML = '<div class="empty-state"><p>Loading students...</p></div>';
+
+            try {
+                const response = await fetch(`/api/students/year/${year}`);
+                allStudentsInYear = await response.json();
+                renderStudentList(allStudentsInYear);
+            } catch (error) {
+                console.error('Error loading students:', error);
+                studentList.innerHTML = '<div class="empty-state"><p class="text-danger">Error loading students</p></div>';
+            }
+        });
+
+        // Use event delegation for student selection (better performance)
+        document.getElementById('studentList').addEventListener('change', (e) => {
+            if (e.target.classList.contains('student-checkbox')) {
+                const studentId = parseInt(e.target.value);
+                if (e.target.checked) {
+                    selectedStudentIds.add(studentId);
+                    e.target.closest('.student-list-item').classList.add('selected');
+                } else {
+                    selectedStudentIds.delete(studentId);
+                    e.target.closest('.student-list-item').classList.remove('selected');
+                }
+                updateSubmitButton();
+            }
+        });
+
+        // Search filtering
+        document.getElementById('studentSearch').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filteredStudents = allStudentsInYear.filter(student =>
+                student.name.toLowerCase().includes(searchTerm)
+            );
+            renderStudentList(filteredStudents);
+        });
+
+        // Select All / Deselect All
+        document.getElementById('selectAllBtn').addEventListener('click', () => {
+            const checkboxes = document.querySelectorAll('.student-checkbox');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+
+            checkboxes.forEach(cb => {
+                cb.checked = !allChecked;
+                const studentId = parseInt(cb.value);
+                if (!allChecked) {
+                    selectedStudentIds.add(studentId);
+                    cb.closest('.student-list-item').classList.add('selected');
+                } else {
+                    selectedStudentIds.delete(studentId);
+                    cb.closest('.student-list-item').classList.remove('selected');
+                }
+            });
+            updateSubmitButton();
+        });
+
+        function renderStudentList(students) {
+            const listContainer = document.getElementById('studentList');
+
+            if (students.length === 0) {
+                listContainer.innerHTML = '<div class="empty-state"><p>No students found</p></div>';
+                return;
+            }
+
+            listContainer.innerHTML = students.map(student => {
+                const isSelected = selectedStudentIds.has(student.id);
+                const badgeClass = `badge-${student.class.toLowerCase()}`;
+
+                return `
+                    <label class="student-list-item ${isSelected ? 'selected' : ''}">
+                        <input type="checkbox" class="student-checkbox" value="${student.id}" ${isSelected ? 'checked' : ''}>
+                        <div class="student-info">
+                            <span class="student-name">${student.name}</span>
+                            <span class="class-badge ${badgeClass}">${student.class}</span>
+                        </div>
+                    </label>
+                `;
+            }).join('');
+        }
+
+        function updateSubmitButton() {
+            const btn = document.getElementById('submitBtn');
+            const countSpan = document.getElementById('selectedCount');
+            const count = selectedStudentIds.size;
+
+            btn.disabled = count === 0;
+            if (count > 0) {
+                btn.textContent = `Sign Out ${count} Student${count !== 1 ? 's' : ''}`;
+                countSpan.textContent = count;
+                countSpan.style.display = 'inline-block';
+            } else {
+                btn.textContent = 'Sign Out Selected Students';
+                countSpan.style.display = 'none';
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('signOutForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (selectedStudentIds.size === 0) return;
+
+            const submitBtn = document.getElementById('submitBtn');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner"></span> Processing...';
+
+            let successCount = 0;
+            const studentsToSignOut = allStudentsInYear.filter(s => selectedStudentIds.has(s.id));
+
+            // Process sequentially to ensure order
+            for (const student of studentsToSignOut) {
+                const pickupData = {
+                    student_id: student.id,
+                    student_name: student.name,
+                    year: student.year,
+                    class: student.class // This ensures routing to correct display!
+                };
+
+                try {
+                    const response = await fetch('/api/pickups', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(pickupData)
+                    });
+
+                    if (response.ok) successCount++;
+                } catch (error) {
+                    console.error(`Error signing out ${student.name}:`, error);
+                }
+            }
+
+            showSuccessMessage(`Successfully signed out ${successCount} student${successCount !== 1 ? 's' : ''}!`);
+
+            // Reset
+            selectedStudentIds.clear();
+            renderStudentList(allStudentsInYear); // Refresh UI choices
+            document.getElementById('studentSearch').value = '';
+            updateSubmitButton();
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sign Out Selected Students';
+
+            // Reload queue
+            loadPendingPickups();
+        });
+
+        // Show success message
+        function showSuccessMessage(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success-message';
+            successDiv.textContent = message;
+            document.body.appendChild(successDiv);
+
+            setTimeout(() => {
+                successDiv.remove();
+            }, 3000);
+        }
+
+        // Load pending pickups
+        async function loadPendingPickups() {
+            try {
+                const response = await fetch('/api/pickups/pending');
+                pendingPickups = await response.json();
+                renderQueue();
+            } catch (error) {
+                console.error('Error loading pending pickups:', error);
+            }
+        }
+
+        // Render queue
+        function renderQueue() {
+            const queueList = document.getElementById('queueList');
+            const queueCount = document.getElementById('queueCount');
+
+            queueCount.textContent = `${pendingPickups.length} pending`;
+
+            if (pendingPickups.length === 0) {
+                queueList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">✅</div>
+            <p>No pending pickups</p>
+          </div>
+        `;
+                return;
+            }
+
+            queueList.innerHTML = pendingPickups.map(pickup => {
+                const waitTime = Math.floor((Date.now() - pickup.timestamp) / 1000 / 60);
+                let waitClass = '';
+                if (waitTime > 5) waitClass = 'danger';
+                else if (waitTime > 2) waitClass = 'warning';
+
+                return `
+          <div class="queue-item">
+            <div class="queue-item-info">
+              <h3>${pickup.student_name}</h3>
+              <div class="queue-item-meta">
+                <span>Year ${pickup.year} ${pickup.class.charAt(0).toUpperCase() + pickup.class.slice(1)}</span>
+                <span class="waiting-time ${waitClass}">⏱️ ${waitTime} min${waitTime !== 1 ? 's' : ''}</span>
+              </div>
+            </div>
+            <span class="badge badge-warning">Pending</span>
+          </div>
+        `;
+            }).join('');
+        }
+
+        // Auto-refresh queue every 5 seconds
+        setInterval(loadPendingPickups, 5000);
+
+        // Initialize
+        loadYears();
+        loadPendingPickups();
+
+        // --- PICKUP CODE LOGIC ---
+
+        document.getElementById('pickupCodeInput').addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') verifyPickupCode();
+        });
+
+        async function verifyPickupCode() {
+            const input = document.getElementById('pickupCodeInput');
+            // Remove spaces/dashes for clean code
+            const rawCode = input.value.replace(/[\s-]/g, '');
+
+            if (!/^\d{6}$/.test(rawCode)) {
+                alert('Please enter a valid 6-digit code.');
+                return;
+            }
+
+            // Show loading
+            const originalBtnText = event.target.textContent;
+            // (Assuming event.target is the button, might be input if enter pressed. Handle gracefully)
+
+            try {
+                const res = await fetch(`/api/pickup-code/${rawCode}`);
+                const data = await res.json();
+
+                if (res.status === 404) {
+                    alert('Invalid or expired pickup code.');
+                    return;
+                }
+
+                if (!res.ok) {
+                    throw new Error(data.error);
+                }
+
+                const { family, students } = data;
+
+                if (students.length === 0) {
+                    alert('Code is valid but no students were selected by the parent.');
+                    return;
+                }
+
+                // Confirmation Dialog
+                const studentNames = students.map(s => `${s.name} (Year ${s.year})`).join('\n- ');
+                const confirmMsg = `FAMILY PICKUP VALIDATED!\n\nFamily: ${family}\n\nStudents to Sign Out:\n- ${studentNames}\n\nProceed with Sign Out?`;
+
+                if (confirm(confirmMsg)) {
+                    // Sign Out Logic
+                    let successCount = 0;
+
+                    for (const student of students) {
+                        try {
+                            const pickupRes = await fetch('/api/pickups', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    student_id: student.id,
+                                    student_name: student.name,
+                                    year: student.year,
+                                    class: student.class
+                                })
+                            });
+
+                            if (pickupRes.ok) successCount++;
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    }
+
+                    showSuccessMessage(`Successfully signed out ${successCount} student(s) for ${family}!`);
+                    input.value = ''; // Clear input
+                    loadPendingPickups(); // Refresh queue
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert('Error verifying code: ' + error.message);
+            }
+        }
+
+        // --- CLASS MERGE FUNCTIONS ---
+
+        function toggleMergeSection() {
+            const section = document.getElementById('mergeSection');
+            const toggle = document.getElementById('mergeToggle');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                toggle.textContent = '▲';
+                initMergeDropdowns();
+                loadActiveMerges();
+            } else {
+                section.style.display = 'none';
+                toggle.textContent = '▼';
+            }
+        }
+
+        async function initMergeDropdowns() {
+            try {
+                const res = await fetch('/api/years');
+                const years = await res.json();
+
+                ['mergeSourceYear', 'mergeHostYear'].forEach(id => {
+                    const select = document.getElementById(id);
+                    select.innerHTML = '<option value="">Year</option>';
+                    years.forEach(({ year }) => {
+                        select.innerHTML += `<option value="${year}">Year ${year}</option>`;
+                    });
+                });
+            } catch (e) {
+                console.error('Error loading merge years:', e);
+            }
+        }
+
+        async function loadMergeClasses(type) {
+            const yearSelect = document.getElementById(type === 'source' ? 'mergeSourceYear' : 'mergeHostYear');
+            const classSelect = document.getElementById(type === 'source' ? 'mergeSourceClass' : 'mergeHostClass');
+            const year = yearSelect.value;
+
+            classSelect.innerHTML = '<option value="">Class</option>';
+            if (!year) return;
+
+            try {
+                const res = await fetch(`/api/classes/${year}`);
+                const classes = await res.json();
+                classes.forEach(c => {
+                    classSelect.innerHTML += `<option value="${c.class}">${c.class.charAt(0).toUpperCase() + c.class.slice(1)}</option>`;
+                });
+            } catch (e) {
+                console.error('Error loading classes:', e);
+            }
+        }
+
+        async function createMerge() {
+            const sourceYear = document.getElementById('mergeSourceYear').value;
+            const sourceClass = document.getElementById('mergeSourceClass').value;
+            const hostYear = document.getElementById('mergeHostYear').value;
+            const hostClass = document.getElementById('mergeHostClass').value;
+
+            if (!sourceYear || !sourceClass || !hostYear || !hostClass) {
+                alert('Please select all fields');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/merge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sourceYear, sourceClass, hostYear, hostClass })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                showSuccessMessage(`Merged Y${sourceYear} ${sourceClass} → Y${hostYear} ${hostClass}`);
+                loadActiveMerges();
+
+                // Reset dropdowns
+                document.getElementById('mergeSourceYear').value = '';
+                document.getElementById('mergeSourceClass').innerHTML = '<option value="">Class</option>';
+                document.getElementById('mergeHostYear').value = '';
+                document.getElementById('mergeHostClass').innerHTML = '<option value="">Class</option>';
+            } catch (e) {
+                console.error('Error creating merge:', e);
+                alert('Error creating merge');
+            }
+        }
+
+        async function loadActiveMerges() {
+            try {
+                const res = await fetch('/api/merges');
+                const merges = await res.json();
+                const container = document.getElementById('activeMergesList');
+
+                if (merges.length === 0) {
+                    container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">No active merges</p>';
+                    return;
+                }
+
+                container.innerHTML = merges.map(m => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.5rem;">
+                        <span><strong>Y${m.source_year} ${m.source_class.charAt(0).toUpperCase() + m.source_class.slice(1)}</strong> → <strong>Y${m.host_year} ${m.host_class.charAt(0).toUpperCase() + m.host_class.slice(1)}</strong></span>
+                        <button class="btn btn-danger btn-sm" onclick="deleteMerge(${m.id})">Un-merge</button>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Error loading merges:', e);
+            }
+        }
+
+        async function deleteMerge(id) {
+            if (!confirm('Remove this merge?')) return;
+
+            try {
+                const res = await fetch(`/api/merge/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showSuccessMessage('Merge removed');
+                    loadActiveMerges();
+                }
+            } catch (e) {
+                console.error('Error deleting merge:', e);
+            }
+        }
+    </script>
+</body>
+
+</html>

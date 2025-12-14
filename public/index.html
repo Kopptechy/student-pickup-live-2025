@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Student pickup system landing page">
+  <title>Student Pickup System</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .hero {
+      min-height: 80vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .hero-content {
+      max-width: 800px;
+    }
+
+    .hero h1 {
+      font-size: 4rem;
+      font-weight: 800;
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: var(--spacing-md);
+      animation: fadeInUp 0.8s ease;
+    }
+
+    .hero p {
+      font-size: 1.5rem;
+      color: var(--text-secondary);
+      margin-bottom: var(--spacing-xl);
+      animation: fadeInUp 0.8s ease 0.2s backwards;
+    }
+
+    .nav-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: var(--spacing-lg);
+      margin-top: var(--spacing-xl);
+      animation: fadeInUp 0.8s ease 0.4s backwards;
+    }
+
+    .nav-card {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--spacing-xl);
+      text-align: center;
+      transition: all var(--transition-normal);
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .nav-card:hover {
+      transform: translateY(-10px);
+      border-color: var(--primary);
+      box-shadow: var(--shadow-lg), var(--shadow-glow);
+    }
+
+    .nav-card-icon {
+      font-size: 4rem;
+      margin-bottom: var(--spacing-md);
+    }
+
+    .nav-card h2 {
+      font-size: 1.75rem;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .nav-card p {
+      color: var(--text-secondary);
+      font-size: 1rem;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .hero h1 {
+        font-size: 2.5rem;
+      }
+
+      .hero p {
+        font-size: 1.2rem;
+      }
+
+      .hero-content {
+        padding: 0 var(--spacing-md);
+      }
+
+      .nav-card {
+        padding: var(--spacing-lg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="hero">
+    <div class="hero-content">
+      <h1>Student Pickup System</h1>
+      <p>Streamlined, real-time notifications for efficient student pickups</p>
+
+      <!-- Main Navigation -->
+      <div class="nav-cards">
+        <div class="nav-card" onclick="openLoginModal()" style="border-color: var(--primary);">
+          <div class="nav-card-icon">🔐</div>
+          <h2 style="color:var(--primary)">Staff Login</h2>
+          <p>Admin Dashboard</p>
+        </div>
+
+        <a href="reception.html" class="nav-card">
+          <div class="nav-card-icon">📝</div>
+          <h2>Reception</h2>
+          <p>Sign out students</p>
+        </a>
+
+        <a href="display.html?year=7&class=blue" class="nav-card">
+          <div class="nav-card-icon">📺</div>
+          <h2>Display</h2>
+          <p>Classroom View</p>
+        </a>
+
+        <a href="parent.html" class="nav-card" style="border-color: var(--success);">
+          <div class="nav-card-icon">👨‍👩‍👧‍👦</div>
+          <h2 style="color:var(--success)">Parent Portal</h2>
+          <p>Log In / Sign Up</p>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login Modal -->
+  <div id="loginModal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeLoginModal()">&times;</span>
+      <h2 style="color:var(--primary); text-align:center; margin-bottom:1.5rem;">Sign In</h2>
+      <form id="globalLoginForm">
+        <div class="form-group">
+          <label style="display:block; margin-bottom:0.5rem; font-weight:600;">Email</label>
+          <input type="email" id="email" required
+            style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px;">
+        </div>
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label style="display:block; margin-bottom:0.5rem; font-weight:600;">Password</label>
+          <input type="password" id="password" required
+            style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px;">
+        </div>
+        <button type="submit"
+          style="width:100%; padding:12px; background:var(--primary); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:1rem;">Login</button>
+        <div id="loginError" style="color:var(--danger); margin-top:1rem; text-align:center; display:none;"></div>
+      </form>
+      <div style="text-align:center; margin-top:1rem; font-size:0.9rem;">
+        <a href="parent.html" style="color:var(--primary);">Parent Sign Up / Portal</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Password Modal -->
+  <div id="changePasswordModal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeChangePasswordModal()">&times;</span>
+      <h2 style="color:var(--primary); text-align:center; margin-bottom:1rem;">Change Password</h2>
+      <p style="text-align:center; color:#666; margin-bottom:1.5rem; font-size:0.9rem;">
+        Use the temporary password to authorize this change.
+      </p>
+
+      <form id="changePasswordForm">
+        <input type="hidden" id="changePassUserId">
+        <div class="form-group">
+          <label style="display:block; margin-bottom:0.5rem; font-weight:600;">New Password</label>
+          <input type="password" id="newPassword" required minlength="6"
+            style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px;">
+        </div>
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label style="display:block; margin-bottom:0.5rem; font-weight:600;">Confirm Password</label>
+          <input type="password" id="confirmNewPassword" required minlength="6"
+            style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px;">
+        </div>
+        <button type="submit"
+          style="width:100%; padding:12px; background:var(--primary); color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:1rem;">Set
+          Password</button>
+        <div id="changePassError" style="color:var(--danger); margin-top:1rem; text-align:center; display:none;"></div>
+      </form>
+    </div>
+  </div>
+
+  <style>
+    /* Modal Styles (Embedded for simplicity) */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.3s;
+    }
+
+    .modal-content {
+      background: var(--bg-card);
+      padding: 2.5rem;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 400px;
+      position: relative;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+  </style>
+
+  <script>
+    function openLoginModal() {
+      document.getElementById('loginModal').style.display = 'flex';
+    }
+    function closeLoginModal() {
+      document.getElementById('loginModal').style.display = 'none';
+    }
+
+    // Close on outside click
+    document.getElementById('loginModal').addEventListener('click', (e) => {
+      if (e.target.id === 'loginModal') closeLoginModal();
+    });
+
+    document.getElementById('globalLoginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const errDiv = document.getElementById('loginError');
+
+      errDiv.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          if (data.mustChangePassword) {
+            // Switch to Change Password Modal
+            closeLoginModal();
+            openChangePasswordModal(data.userId);
+          } else {
+            // Normal Login
+            if (data.user.role === 'admin') {
+              window.location.href = 'admin.html';
+            } else {
+              window.location.href = 'parent.html';
+            }
+          }
+        } else {
+          errDiv.textContent = data.error || 'Login failed';
+          errDiv.style.display = 'block';
+        }
+      } catch (err) {
+        console.error(err);
+        errDiv.textContent = 'Connection error';
+        errDiv.style.display = 'block';
+      }
+    });
+
+    // --- Change Password Logic ---
+    function openChangePasswordModal(userId) {
+      document.getElementById('changePassUserId').value = userId;
+      document.getElementById('changePasswordModal').style.display = 'flex';
+    }
+
+    function closeChangePasswordModal() {
+      document.getElementById('changePasswordModal').style.display = 'none';
+    }
+
+    document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const userId = document.getElementById('changePassUserId').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmNewPassword').value;
+      const errDiv = document.getElementById('changePassError');
+
+      if (newPassword !== confirmPassword) {
+        errDiv.textContent = "Passwords do not match";
+        errDiv.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, newPassword })
+        });
+
+        if (res.ok) {
+          alert('Password updated! Please log in with your new password.');
+          closeChangePasswordModal();
+          openLoginModal();
+        } else {
+          const data = await res.json();
+          errDiv.textContent = data.error || 'Failed to update password';
+          errDiv.style.display = 'block';
+        }
+      } catch (err) {
+        errDiv.textContent = 'Connection error';
+        errDiv.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+
+</html>

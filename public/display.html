@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Classroom display for student pickup notifications">
+    <title>Classroom Display - Student Pickup</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .display-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: var(--spacing-sm);
+            /* Reduced from lg */
+        }
+
+        .display-header {
+            background: var(--gradient-primary);
+            padding: var(--spacing-sm) var(--spacing-md);
+            /* Greatly reduced padding */
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--spacing-sm);
+            /* Reduced margin */
+            box-shadow: var(--shadow-md);
+            text-align: center;
+            flex-shrink: 0;
+            /* Don't shrink */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .display-header h1 {
+            font-size: 1.2rem;
+            /* Further reduced */
+            margin: 0;
+            text-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .class-info {
+            font-size: 1rem;
+            /* Further reduced */
+            opacity: 0.9;
+            margin-top: 0;
+            /* Remove margin */
+            font-weight: bold;
+        }
+
+        /* ADAPTIVE LAYOUT RULES */
+        /* Default is Compact (5+ students) - what we currently have */
+        .pickups-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-xs);
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--spacing-xs);
+            align-content: start;
+        }
+
+        /* 1-2 Students: BIG MODE */
+        .pickups-container[data-count="1"],
+        .pickups-container[data-count="2"] {
+            grid-template-columns: 1fr;
+            /* Single column */
+            padding: var(--spacing-sm);
+            gap: var(--spacing-sm);
+        }
+
+        .pickups-container[data-count="1"] .pickup-card,
+        .pickups-container[data-count="2"] .pickup-card {
+            padding: var(--spacing-sm);
+            border-width: 2px;
+        }
+
+        .pickups-container[data-count="1"] .student-name,
+        .pickups-container[data-count="2"] .student-name {
+            font-size: 2.5rem;
+            /* Reduced from 4rem */
+        }
+
+        .pickups-container[data-count="1"] .waiting-badge,
+        .pickups-container[data-count="2"] .waiting-badge {
+            font-size: 1.2rem;
+            padding: var(--spacing-xs) var(--spacing-md);
+        }
+
+        .pickups-container[data-count="1"] .acknowledge-btn,
+        .pickups-container[data-count="2"] .acknowledge-btn {
+            font-size: 1rem;
+            padding: 6px 10px;
+            margin-top: 4px;
+        }
+
+        /* 3-4 Students: MEDIUM MODE */
+        .pickups-container[data-count="3"],
+        .pickups-container[data-count="4"] {
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--spacing-md);
+            padding: var(--spacing-md);
+        }
+
+        .pickups-container[data-count="3"] .student-name,
+        .pickups-container[data-count="4"] .student-name {
+            font-size: 2.2rem;
+            /* Medium text */
+        }
+
+        .pickups-container[data-count="3"] .waiting-badge,
+        .pickups-container[data-count="4"] .waiting-badge {
+            font-size: 1.1rem;
+        }
+
+        /* Standard Compact Mode (default) styles for reference */
+        .pickup-card {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-xs);
+            margin-bottom: 0;
+            animation: slideInLeft 0.5s ease;
+            transition: all var(--transition-normal);
+            height: fit-content;
+        }
+
+        .acknowledge-btn {
+            margin-top: 2px;
+            width: 100%;
+            font-size: 0.85rem;
+            padding: 4px 8px;
+        }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            /* Span full width */
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 8rem;
+            margin-bottom: var(--spacing-lg);
+            opacity: 0.5;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        .empty-state h2 {
+            font-size: 2.5rem;
+            color: var(--text-secondary);
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            z-index: 1000;
+        }
+
+        .connection-status.connected {
+            background: rgba(34, 197, 94, 0.2);
+            border: 2px solid var(--success);
+            color: var(--success);
+        }
+
+        .connection-status.disconnected {
+            background: rgba(239, 68, 68, 0.2);
+            border: 2px solid var(--danger);
+            color: var(--danger);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .acknowledging {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        @media (max-width: 1024px) {
+            .display-header h1 {
+                font-size: 2rem;
+            }
+
+            .student-name {
+                font-size: 2.5rem;
+            }
+
+            .waiting-badge {
+                font-size: 1.5rem;
+            }
+        }
+
+        /* Merged class badge styles */
+        .merged-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-left: 8px;
+            text-transform: uppercase;
+            vertical-align: middle;
+        }
+
+        .merged-badge.blue {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .merged-badge.green {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .merged-badge.red {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .merge-status {
+            font-size: 0.85rem;
+            margin-top: 4px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="connection-status disconnected" id="connectionStatus">
+        <span class="status-dot"></span>
+        <span>Connecting...</span>
+    </div>
+
+    <div class="display-container">
+        <div class="display-header">
+            <div style="flex: 1; text-align: center;">
+                <img src="school-banner.png" alt="Corona Day Secondary School, Lekki"
+                    style="max-width: 95%; height: auto; margin-bottom: 6px;">
+                <h1>📺 Student Pickup Display</h1>
+                <div class="class-info" id="classInfo">Loading...</div>
+            </div>
+        </div>
+
+        <div class="pickups-container" id="pickupsContainer">
+            <div class="empty-state">
+                <div class="empty-state-icon">✅</div>
+                <h2>No Pending Pickups</h2>
+                <p style="font-size: 1.5rem; margin-top: var(--spacing-md);">Waiting for notifications...</p>
+            </div>
+        </div>
+
+
+    </div>
+
+    <!-- Audio notification -->
+    <audio id="notificationSound" preload="auto">
+        <source
+            src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGGS57OihUBELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBSp+zPLaizsKGGS56+mjUhELTKXh8bllHAU2jdXzzn0vBQ=="
+            type="audio/wav">
+    </audio>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const year = parseInt(urlParams.get('year')) || 7;
+        const className = urlParams.get('class') || 'blue';
+
+        let ws = null;
+        let pickups = [];
+        let reconnectTimeout = null;
+        let activeMerges = [];  // Track merges where this class is host
+
+        // Update class info (base, will be updated if merges exist)
+        function updateHeaderMergeStatus() {
+            const classInfo = document.getElementById('classInfo');
+            let headerText = `Year ${year} ${className.charAt(0).toUpperCase() + className.slice(1)}`;
+
+            if (activeMerges.length > 0) {
+                const mergeLabels = activeMerges.map(m =>
+                    `Y${m.source_year} ${m.source_class.charAt(0).toUpperCase() + m.source_class.slice(1)}`
+                ).join(' + ');
+                headerText += ` <span class="merge-status">(+ ${mergeLabels})</span>`;
+            }
+
+            classInfo.innerHTML = headerText;
+        }
+
+        // Load merges for this host on startup
+        async function loadHostMerges() {
+            try {
+                const res = await fetch(`/api/merges/host/${year}/${className}`);
+                activeMerges = await res.json();
+                updateHeaderMergeStatus();
+            } catch (e) {
+                console.error('Error loading merges:', e);
+            }
+        }
+
+        updateHeaderMergeStatus();
+
+        // WebSocket connection
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}?token=STAFF_WX_TOKEN_2025`);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                updateConnectionStatus(true);
+
+                // Subscribe to this class
+                ws.send(JSON.stringify({
+                    type: 'subscribe',
+                    year: year,
+                    className: className
+                }));
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                switch (data.type) {
+                    case 'initial':
+                        pickups = data.pickups;
+                        renderPickups();
+                        break;
+
+                    case 'new_pickup':
+                        pickups.push(data.pickup);
+                        renderPickups();
+                        playNotificationSound();
+                        break;
+
+                    case 'pickup_acknowledged':
+                        pickups = pickups.filter(p => p.id !== data.pickupId);
+                        renderPickups();
+                        break;
+
+                    case 'merge_activated':
+                        // A new class has been merged into us
+                        activeMerges.push(data.merge);
+                        updateHeaderMergeStatus();
+                        break;
+
+                    case 'merge_deactivated':
+                        // A merge has been removed
+                        activeMerges = activeMerges.filter(m => m.id !== data.mergeId);
+                        updateHeaderMergeStatus();
+                        break;
+
+                    case 'heartbeat':
+                        // Keep connection alive
+                        break;
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                updateConnectionStatus(false);
+
+                // Attempt to reconnect after 3 seconds
+                reconnectTimeout = setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        // Update connection status
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            if (connected) {
+                statusEl.className = 'connection-status connected';
+                statusEl.innerHTML = '<span class="status-dot"></span><span>Connected</span>';
+            } else {
+                statusEl.className = 'connection-status disconnected';
+                statusEl.innerHTML = '<span class="status-dot"></span><span>Reconnecting...</span>';
+            }
+        }
+
+        // Play notification sound
+        function playNotificationSound() {
+            const audio = document.getElementById('notificationSound');
+            audio.play().catch(e => console.log('Audio play failed:', e));
+        }
+
+        // Render pickups
+        function renderPickups() {
+            const container = document.getElementById('pickupsContainer');
+
+            // Set count for adaptive CSS
+            container.dataset.count = pickups.length;
+
+            if (pickups.length === 0) {
+                container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">✅</div>
+            <h2>No Pending Pickups</h2>
+            <p style="font-size: 1.5rem; margin-top: var(--spacing-md);">Waiting for notifications...</p>
+          </div>
+        `;
+                return;
+            }
+
+            container.innerHTML = pickups.map(pickup => {
+                const waitTime = Math.floor((Date.now() - pickup.timestamp) / 1000 / 60);
+                let statusClass = 'new';
+                let statusText = `${waitTime} min${waitTime !== 1 ? 's' : ''}`;
+
+                if (waitTime > 5) {
+                    statusClass = 'danger';
+                    statusText = `⚠️ ${waitTime} mins - URGENT`;
+                } else if (waitTime > 2) {
+                    statusClass = 'warning';
+                    statusText = `⏱️ ${waitTime} mins`;
+                } else {
+                    statusText = `🆕 ${waitTime} min${waitTime !== 1 ? 's' : ''}`;
+                }
+
+                // Check if this is a merged student
+                let mergedBadge = '';
+                if (pickup.merged_from) {
+                    const mergedClass = pickup.merged_from.class;
+                    mergedBadge = `<span class="merged-badge ${mergedClass}">Y${pickup.merged_from.year} ${mergedClass}</span>`;
+                }
+
+                return `
+          <div class="pickup-card ${statusClass}" id="pickup-${pickup.id}">
+            <div class="pickup-header">
+              <h2 class="student-name">${pickup.student_name}${mergedBadge}</h2>
+              <div class="waiting-badge ${statusClass}">${statusText}</div>
+            </div>
+            <button class="btn btn-success btn-xl acknowledge-btn" onclick="acknowledgePickup('${pickup.id}')">
+              ✅ Student Sent Down
+            </button>
+          </div>
+        `;
+            }).join('');
+        }
+
+        // Acknowledge pickup
+        async function acknowledgePickup(pickupId) {
+            const card = document.getElementById(`pickup-${pickupId}`);
+            if (!card) return;
+
+            card.classList.add('acknowledging');
+
+            // Force Mock Behavior for local testing
+            setTimeout(() => {
+                pickups = pickups.filter(p => String(p.id) !== String(pickupId));
+                renderPickups();
+            }, 300);
+
+            // Try to notify server (silently fail if offline)
+            try {
+                fetch(`/api/pickups/${pickupId}/acknowledge`, { method: 'POST' }).catch(() => { });
+            } catch (e) { }
+        }
+
+        // Update waiting times every 30 seconds
+        setInterval(() => {
+            if (pickups.length > 0) {
+                renderPickups();
+            }
+        }, 30000);
+
+        // Initialize
+        loadHostMerges();
+        connectWebSocket();
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (ws) {
+                ws.close();
+            }
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+            }
+        });
+
+    </script>
+</body>
+
+</html>
