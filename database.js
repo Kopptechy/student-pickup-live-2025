@@ -78,6 +78,13 @@ class PickupDatabase {
         )
       `);
 
+      // Migrations: Ensure columns exist
+      await client.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at BIGINT DEFAULT extract(epoch from now()) * 1000;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'parent';
+      `);
+
       // Parent Invites Table (New)
       await client.query(`
         CREATE TABLE IF NOT EXISTS parent_invites (
