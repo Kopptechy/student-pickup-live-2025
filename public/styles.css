@@ -1,73 +1,74 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* Color Palette - Modern Blue Theme */
---primary: #4F46E5;
-/* Indigo 600 */
---primary-dark: #3730A3;
-/* Indigo 800 */
---primary-light: #818CF8;
-/* Indigo 400 */
+:root {
+  --primary: #4F46E5;
+  /* Indigo 600 */
+  --primary-dark: #3730A3;
+  /* Indigo 800 */
+  --primary-light: #818CF8;
+  /* Indigo 400 */
 
---success: #10B981;
-/* Emerald 500 */
---success-light: #34D399;
+  --success: #10B981;
+  /* Emerald 500 */
+  --success-light: #34D399;
 
---warning: #F59E0B;
-/* Amber 500 */
---warning-light: #FBBF24;
+  --warning: #F59E0B;
+  /* Amber 500 */
+  --warning-light: #FBBF24;
 
---danger: #EF4444;
-/* Red 500 */
---danger-light: #F87171;
+  --danger: #EF4444;
+  /* Red 500 */
+  --danger-light: #F87171;
 
-/* Neutral Greys/Blacks */
---bg-dark: #0F172A;
-/* Slate 900 */
---bg-card: #1E293B;
-/* Slate 800 */
---bg-card-hover: #334155;
-/* Slate 700 */
+  /* Neutral Greys/Blacks */
+  --bg-dark: #0F172A;
+  /* Slate 900 */
+  --bg-card: #1E293B;
+  /* Slate 800 */
+  --bg-card-hover: #334155;
+  /* Slate 700 */
 
---text-primary: #F8FAFC;
-/* Slate 50 */
---text-secondary: #94A3B8;
-/* Slate 400 */
---text-muted: #64748B;
-/* Slate 500 */
+  --text-primary: #F8FAFC;
+  /* Slate 50 */
+  --text-secondary: #94A3B8;
+  /* Slate 400 */
+  --text-muted: #64748B;
+  /* Slate 500 */
 
---border: #334155;
---border-light: #475569;
+  --border: #334155;
+  --border-light: #475569;
 
-/* Gradients */
---gradient-primary: linear-gradient(135deg, #4F46E5, #3730A3);
---gradient-success: linear-gradient(135deg, #10B981, #059669);
---gradient-warning: linear-gradient(135deg, #F59E0B, #D97706);
---gradient-danger: linear-gradient(135deg, #EF4444, #B91C1C);
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #4F46E5, #3730A3);
+  --gradient-success: linear-gradient(135deg, #10B981, #059669);
+  --gradient-warning: linear-gradient(135deg, #F59E0B, #D97706);
+  --gradient-danger: linear-gradient(135deg, #EF4444, #B91C1C);
 
-/* Spacing */
---spacing-xs: 0.5rem;
---spacing-sm: 1rem;
---spacing-md: 1.5rem;
---spacing-lg: 2rem;
---spacing-xl: 3rem;
+  /* Spacing */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 3rem;
 
-/* Border Radius */
---radius-sm: 0.5rem;
---radius-md: 1rem;
---radius-lg: 1.5rem;
---radius-xl: 2rem;
+  /* Border Radius */
+  --radius-sm: 0.5rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
+  --radius-xl: 2rem;
 
-/* Shadows */
---shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5);
---shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6);
---shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
---shadow-glow: 0 0 20px rgba(79, 70, 229, 0.3);
-/* Indigo Glow */
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.3);
+  /* Indigo Glow */
 
-/* Transitions */
---transition-fast: 150ms ease;
---transition-normal: 300ms ease;
---transition-slow: 500ms ease;
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 300ms ease;
+  --transition-slow: 500ms ease;
 }
 
 * {
