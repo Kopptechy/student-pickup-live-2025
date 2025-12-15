@@ -379,6 +379,11 @@ class PickupDatabase {
     return result.rows[0];
   }
 
+  async getAllUsers() {
+    const result = await this.pool.query('SELECT * FROM users ORDER BY created_at DESC');
+    return result.rows;
+  }
+
   async getFamilyByCode(code) {
     const result = await this.pool.query('SELECT * FROM families WHERE code = $1', [code]);
     return result.rows[0];
