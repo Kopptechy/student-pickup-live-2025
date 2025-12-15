@@ -743,7 +743,7 @@ app.get('/api/admin/pending-users', async (req, res) => {
 // Admin: Get All Users
 app.get('/api/admin/users', async (req, res) => {
     try {
-        const users = await db.getUsers();
+        const users = await db.getAllUsers();
         // Return mostly clean data
         const safeUsers = users.map(u => ({
             id: u.id,
