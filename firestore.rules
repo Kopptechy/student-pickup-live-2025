@@ -1,0 +1,330 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // =====================================================
+    // HELPER FUNCTIONS
+    // =====================================================
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function getUserRole() {
+      return getUserData().role;
+    }
+    
+    function getUserSchoolId() {
+      return getUserData().schoolId;
+    }
+    
+    // Role checks
+    function isSuperAdmin() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superAdmin';
+    }
+    
+    function isSchoolAdmin() {
+      return isSignedIn() && getUserRole() == 'admin';
+    }
+    
+    function isTeacher() {
+      return isSignedIn() && getUserRole() == 'teacher';
+    }
+    
+    function isParent() {
+      return isSignedIn() && getUserRole() == 'parent';
+    }
+    
+    function isAdminOrHigher() {
+      let role = getUserRole();
+      return isSignedIn() && (role == 'superAdmin' || role == 'admin');
+    }
+    
+    function isStaffOrHigher() {
+      let role = getUserRole();
+      return isSignedIn() && (role == 'superAdmin' || role == 'admin' || role == 'teacher');
+    }
+    
+    // School isolation - check if user belongs to the school
+    function belongsToSchool(schoolId) {
+      return isSignedIn() && (isSuperAdmin() || getUserSchoolId() == schoolId);
+    }
+    
+    // =====================================================
+    // SCHOOLS COLLECTION
+    // =====================================================
+    match /schools/{schoolId} {
+      // Public read for school name (needed for signup page)
+      allow get: if true;
+      
+      // Super Admin can do everything
+      allow read, write: if isSuperAdmin();
+      
+      // School Admin can read their own school
+      allow read: if belongsToSchool(schoolId);
+      
+      // School Admin can update their own school settings (excluding sensitive fields)
+      allow update: if isSchoolAdmin() && getUserSchoolId() == schoolId && 
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['subscriptionPlan', 'status', 'studentCount', 'createdAt', 'createdBy']));
+       
+      // Announcements Subcollection
+      match /announcements/{announcementId} {
+        allow read: if true; // Public read for display ticker (no-auth displays)
+        allow write: if isSchoolAdmin() && getUserSchoolId() == schoolId;
+      }
+    }
+
+    
+    // =====================================================
+    // USERS COLLECTION
+    // =====================================================
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isOwner(userId);
+      
+      // Users can CREATE their own profile (for signup flow)
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      // Users can update their own profile (limited fields)
+      allow update: if isOwner(userId) && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'phone', 'lastLogin']);
+      
+      // Super Admin can read/write all users
+      allow read, write: if isSuperAdmin();
+      
+      // Explicit delete for superAdmin (backup rule)
+      allow delete: if isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superAdmin';
+      
+      // School Admin can read/write users in their school
+      allow read, write: if isSchoolAdmin() && 
+        (resource.data.schoolId == getUserSchoolId() || request.resource.data.schoolId == getUserSchoolId());
+      
+      // --- PICKERS SUBCOLLECTION ---
+      match /pickers/{pickerId} {
+        // Parent can CRUD their own pickers
+        allow read, write: if isOwner(userId);
+        
+        // Super Admin full access
+        allow read, write: if isSuperAdmin();
+        
+        // School staff can read pickers (for verification)
+        allow read: if isStaffOrHigher();
+      }
+    }
+    
+    // =====================================================
+    // ADMIN INVITES (for school admin signup flow)
+    // =====================================================
+    match /adminInvites/{inviteToken} {
+      // Public read for invite validation during signup
+      allow get: if true;
+      
+      // Super Admin can list/query invites
+      allow list: if isSuperAdmin();
+      
+      // Super Admin can create invites
+      allow create: if isSuperAdmin();
+      
+      // Anyone can update (for marking as used during signup)
+      allow update: if true;
+      
+      // Super Admin can delete
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Legacy: pendingAdmins (deprecated)
+    match /pendingAdmins/{adminId} {
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // =====================================================
+    // CLASSES (Subcollection under schools)
+    // =====================================================
+    match /schools/{schoolId}/classes/{classId} {
+      // Super Admin full access
+      allow read, write: if isSuperAdmin();
+      
+      // School users can read classes in their school
+      allow read: if belongsToSchool(schoolId);
+      
+      // School Admin can create/modify classes
+      allow write: if isSchoolAdmin() && getUserSchoolId() == schoolId;
+      
+      // Display token validation (public read for specific class by token)
+      allow get: if true; // Needed for display token validation
+    }
+    
+    // =====================================================
+    // STUDENTS (Subcollection under schools)
+    // =====================================================
+    match /schools/{schoolId}/students/{studentId} {
+      // Super Admin full access
+      allow read, write: if isSuperAdmin();
+      
+      // School Admin and Teachers can read all students in school
+      allow read: if isStaffOrHigher() && belongsToSchool(schoolId);
+      
+      // School Admin can create/modify students
+      allow write: if isSchoolAdmin() && getUserSchoolId() == schoolId;
+      
+      // Parents can read their own children
+      allow read: if isParent() && 
+        getUserSchoolId() == schoolId && 
+        request.auth.uid in resource.data.parentIds;
+    }
+    
+    // =====================================================
+    // PICKUPS (Subcollection under schools)
+    // =====================================================
+    match /schools/{schoolId}/pickups/{pickupId} {
+      // Super Admin full access
+      allow read, write: if isSuperAdmin();
+      
+      // School staff can read all pickups and update status
+      allow read: if isStaffOrHigher() && belongsToSchool(schoolId);
+      allow update: if isStaffOrHigher() && belongsToSchool(schoolId);
+      
+      // Parents can create pickups for their children
+      allow create: if isParent() && 
+        getUserSchoolId() == schoolId;
+      
+      // Parents can read their own pickups
+      allow read: if isParent() && 
+        getUserSchoolId() == schoolId && 
+        resource.data.generatedBy == request.auth.uid;
+      
+      // Display can read pending pickups (for classroom notifications)
+      allow read: if true; // Display needs to show pickup notifications
+      
+      // Display can acknowledge (update status only)
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acknowledgedAt']);
+    }
+    
+    // =====================================================
+    // PAIRING CODES (for IFP setup)
+    // =====================================================
+    match /pairingCodes/{codeId} {
+      // IFP needs to find the code without being logged in
+      allow read: if true;
+      
+      // Admins generate codes
+      allow create, delete: if isAdminOrHigher();
+      
+      // Admins and IFP (during consumption) can update
+      allow update: if true; 
+    }
+    
+    // =====================================================
+    // PICKUP CODES (for code validation)
+    // =====================================================
+    match /pickup_codes/{code} {
+      // Staff can read codes ( for verification at reception)
+      allow read: if isStaffOrHigher();
+      
+      // Parents can create codes
+      allow create: if isParent();
+      // Allow parents to check if code exists (uniqueness check)
+      allow get: if isParent();
+      
+      // Super Admin full access
+      allow read, write: if isSuperAdmin();
+    }
+    
+    // =====================================================
+    // LEGACY COLLECTIONS (for backward compatibility)
+    // =====================================================
+    
+    // Legacy students (flat collection)
+    match /students/{studentId} {
+      allow read: if isSignedIn(); 
+      allow write: if isAdminOrHigher();
+      allow update: if isSignedIn();
+      // Explicit delete for superAdmin
+      allow delete: if isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superAdmin';
+    }
+    
+    // Legacy pickups (flat collection)
+    match /pickups/{pickupId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow delete: if isSignedIn();
+      allow update: if isStaffOrHigher() || 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acknowledged_at']);
+    }
+    
+    // Parent invites
+    match /parent_invites/{code} {
+      allow get: if true; 
+      allow list: if isAdminOrHigher();
+      allow create, delete: if isAdminOrHigher();
+      allow update: if isSignedIn();
+    }
+    
+    // Class merges
+    match /class_merges/{mergeId} {
+      allow read: if true; 
+      allow write: if isStaffOrHigher();
+    }
+    
+    // Mail (extension)
+    match /mail/{mailId} {
+      allow write: if isAdminOrHigher();
+    }
+
+    // =====================================================
+    // DEMO REQUESTS (Public Access)
+    // =====================================================
+    match /demo_requests/{requestId} {
+      allow create: if true;
+      allow read, update, delete: if isSuperAdmin();
+    }
+    // =====================================================
+    // ARRIVALS COLLECTION (Drop-off System)
+    // =====================================================
+    match /arrivals/{arrivalId} {
+      allow read: if isSignedIn();
+      allow create: if isStaffOrHigher() || (isSignedIn() && getUserRole() == 'bus_staff');
+      allow update, delete: if isAdminOrHigher();
+    }
+
+    // =====================================================
+    // DEPARTURES COLLECTION (Bus Departure Tracking)
+    // =====================================================
+    match /departures/{departureId} {
+      allow read: if isSignedIn();
+      allow create: if isStaffOrHigher() || (isSignedIn() && getUserRole() == 'bus_staff');
+      allow update, delete: if isAdminOrHigher();
+    }
+
+    // =====================================================
+    // HOME DROP-OFFS COLLECTION (Bus Home Drop-off Tracking)
+    // =====================================================
+    match /home_dropoffs/{dropoffId} {
+      allow read: if isSignedIn();
+      allow create: if isStaffOrHigher() || (isSignedIn() && getUserRole() == 'bus_staff');
+      allow update, delete: if isAdminOrHigher();
+    }
+
+    // =====================================================
+    // BUSES COLLECTION (Bus Management)
+    // =====================================================
+    match /buses/{busId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdminOrHigher();
+    }
+  }
+}

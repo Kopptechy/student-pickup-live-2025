@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SurePickup - Super Admin Dashboard">
+    <title>Super Admin - SurePickup</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --coral: #E07A5F;
+            --coral-dark: #C4563A;
+            --teal: #3D5A5B;
+            --teal-light: #5B8A8B;
+            --cream: #F4F1DE;
+            --cream-dark: #E8E4CC;
+            --charcoal: #2B2D42;
+            --sage: #81B29A;
+            --sand: #F2CC8F;
+            --bg-main: #FDFCF7;
+            --text-dark: #2B2D42;
+            --text-muted: #6B6E7B;
+            --error: #E53935;
+            --success: #43A047;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg-main);
+            color: var(--text-dark);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--cream-dark);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--teal);
+        }
+
+        .logo span {
+            color: var(--coral);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background: var(--teal);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .user-name {
+            font-weight: 500;
+        }
+
+        .user-role {
+            font-size: 0.8rem;
+            color: var(--coral);
+            font-weight: 600;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--teal);
+            color: var(--teal);
+        }
+
+        .btn-outline:hover {
+            background: var(--teal);
+            color: white;
+        }
+
+        .btn-primary {
+            background: var(--coral);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--coral-dark);
+        }
+
+        .btn-success {
+            background: var(--sage);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #6a9a82;
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .page-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-subtitle {
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--cream-dark);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--teal);
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Schools Section */
+        .section {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid var(--cream-dark);
+            margin-bottom: 2rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--cream-dark);
+        }
+
+        th {
+            background: var(--cream);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        tr:hover {
+            background: rgba(244, 241, 222, 0.5);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: rgba(129, 178, 154, 0.2);
+            color: var(--sage);
+        }
+
+        .status-trial {
+            background: rgba(242, 204, 143, 0.3);
+            color: #b8860b;
+        }
+
+        .status-suspended {
+            background: rgba(229, 57, 53, 0.1);
+            color: var(--error);
+        }
+
+        .action-btn {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            margin-right: 0.5rem;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.show .modal {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--cream-dark);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--teal);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .form-actions .btn {
+            flex: 1;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Loading state */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 1rem;
+            }
+
+            .main-content {
+                padding: 1rem;
+            }
+
+            .user-name {
+                display: none;
+            }
+
+            .page-title {
+                font-size: 1.5rem;
+            }
+        }
+
+
+
+        /* Modal Tabs */
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-right: 1rem;
+        }
+
+        .tab-btn.active {
+            border-bottom-color: var(--coral);
+            color: var(--coral);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">Sure<span>Pickup</span></div>
+        <div class="header-right">
+            <div class="user-info">
+                <div class="user-avatar" id="userAvatar">SA</div>
+                <div>
+                    <div class="user-name" id="userName">Super Admin</div>
+                    <div class="user-role">Super Admin</div>
+                </div>
+            </div>
+            <button class="btn btn-outline" id="signOutBtn">Sign Out</button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <h1 class="page-title">Super Admin Dashboard</h1>
+        <p class="page-subtitle">Manage all schools and administrators</p>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalSchools">0</div>
+                <div class="stat-label">Total Schools</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="activeSchools">0</div>
+                <div class="stat-label">Active Schools</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalUsers">0</div>
+                <div class="stat-label">Total Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="todayPickups">0</div>
+                <div class="stat-label">Today's Pickups</div>
+            </div>
+        </div>
+
+        <!-- Schools Section -->
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">🏫 Schools</h2>
+                <button class="btn btn-primary" id="addSchoolBtn">+ Add School</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>School Name</th>
+                            <th>Admin</th>
+                            <th>Students</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="schoolsTable">
+                        <tr>
+                            <td colspan="6" class="loading">Loading schools...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+
+        <!-- Enquiries Section -->
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">📩 Demo Requests / Enquiries</h2>
+                <button class="btn btn-outline" onclick="loadEnquiries()">🔄 Refresh</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Name</th>
+                            <th>School</th>
+                            <th>Email & Phone</th>
+                            <th>Role</th>
+                            <th>Details</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="enquiriesTable">
+                        <tr>
+                            <td colspan="8" class="loading">Loading enquiries...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">🛠️ Data Maintenance</h2>
+            </div>
+            <div id="migrationContainer">
+                <p style="margin-bottom:1rem; color:var(--text-muted);">
+                    Use this tool to assign legacy students (uploaded before multi-tenancy) to a specific school.
+                </p>
+                <div style="display:flex; gap:1rem; align-items:center;">
+                    <button class="btn btn-outline" id="scanBtn" onclick="scanOrphans()">Scan for Orphaned
+                        Students</button>
+                    <span id="orphanCount" style="font-weight:bold; color:var(--text-muted);"></span>
+                </div>
+
+                <div id="migrationActions"
+                    style="margin-top:1.5rem; display:none; background:var(--cream); padding:1.5rem; border-radius:12px;">
+                    <p style="margin-bottom:0.5rem; font-weight:600;">Assign these students to:</p>
+                    <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+                        <select id="targetSchool"
+                            style="padding:0.75rem; border-radius:8px; border:1px solid var(--cream-dark); min-width:250px;">
+                            <!-- Populated via JS -->
+                        </select>
+                        <button class="btn btn-primary" id="migrateBtn" onclick="migrateOrphans()">Migrate
+                            Students</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add School Modal -->
+    <div class="modal-overlay" id="schoolModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Add New School</h3>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <form id="schoolForm">
+                <div class="form-group">
+                    <label for="schoolName">School Name *</label>
+                    <input type="text" id="schoolName" required placeholder="e.g., Greenwood Academy">
+                </div>
+                <div class="form-group">
+                    <label for="schoolEmail">School Email *</label>
+                    <input type="email" id="schoolEmail" required placeholder="admin@school.edu">
+                </div>
+                <div class="form-group">
+                    <label for="schoolPhone">Phone Number</label>
+                    <input type="tel" id="schoolPhone" placeholder="+234...">
+                </div>
+                <div class="form-group">
+                    <label for="schoolAddress">Address</label>
+                    <input type="text" id="schoolAddress" placeholder="School address">
+                </div>
+
+                <div class="form-group">
+                    <label for="subscriptionPlan">Subscription Plan</label>
+                    <select id="subscriptionPlan">
+                        <option value="starter">Starter (Free)</option>
+                        <option value="premium">💎 Premium (Custom Branding)</option>
+                    </select>
+                </div>
+
+                <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--cream-dark);">
+                <h4 style="margin-bottom: 1rem;">School Admin Account</h4>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                    An invite link will be generated for the admin to complete their registration.
+                </p>
+
+                <div class="form-group">
+                    <label for="adminName">Admin Name *</label>
+                    <input type="text" id="adminName" required placeholder="Full name">
+                </div>
+                <div class="form-group">
+                    <label for="adminEmail">Admin Email *</label>
+                    <input type="email" id="adminEmail" required placeholder="admin@school.edu">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" id="cancelModal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Create School & Generate Invite</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- School Details Modal -->
+    <div class="modal-overlay" id="schoolDetailsModal">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 class="modal-title">School Details</h3>
+                <button class="modal-close" onclick="closeSchoolDetails()">&times;</button>
+            </div>
+
+            <div class="tabs" style="border-bottom:1px solid var(--cream-dark); margin-bottom: 1.5rem;">
+                <button class="tab-btn active" onclick="switchDetailTab('overview', this)">Overview</button>
+                <button class="tab-btn" onclick="switchDetailTab('settings', this)">Settings</button>
+                <button class="tab-btn" onclick="switchDetailTab('branding', this)">Branding</button>
+            </div>
+
+            <form id="schoolDetailsForm">
+                <input type="hidden" id="editSchoolId">
+
+                <!-- OVERVIEW TAB -->
+                <div id="tab-overview" class="detail-tab-content">
+                    <div class="form-group">
+                        <label>School Name</label>
+                        <input type="text" id="editSchoolName" required>
+                    </div>
+                    <div class="form-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label>Phone</label>
+                            <input type="text" id="editSchoolPhone">
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="editSchoolEmail">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Address</label>
+                        <input type="text" id="editSchoolAddress">
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Email (View Only)</label>
+                        <input type="text" id="editAdminEmail" disabled style="background:#f3f4f6;">
+                    </div>
+                </div>
+
+                <!-- SETTINGS TAB -->
+                <div id="tab-settings" class="detail-tab-content" style="display:none;">
+                    <div class="form-group">
+                        <label>Subscription Plan</label>
+                        <select id="editPlan">
+                            <option value="starter">Starter (Free)</option>
+                            <option value="premium">💎 Premium</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Pickup Code Expiry (Hours)</label>
+                        <input type="number" id="editExpiry" min="1" max="48">
+                    </div>
+                    <div class="form-group">
+                        <label>Geofence Radius (meters)</label>
+                        <input type="number" id="editGeofence" min="10" max="1000">
+                    </div>
+                    <div class="form-group">
+                        <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                            <input type="checkbox" id="editSelfSignout" style="width:auto;">
+                            Allow Parent Self-Signout
+                        </label>
+                    </div>
+                </div>
+
+                <!-- BRANDING TAB -->
+                <div id="tab-branding" class="detail-tab-content" style="display:none;">
+                    <div class="form-group">
+                        <label>Branding Colors</label>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+                            <!-- Primary -->
+                            <div>
+                                <label style="font-size:0.8rem; margin-bottom:0.2rem;">Primary</label>
+                                <div style="display:flex; gap:5px;">
+                                    <input type="color" id="editColorPicker1"
+                                        style="width:40px; padding:0; height:38px;">
+                                    <input type="text" id="editPrimaryColor" placeholder="#E07A5F"
+                                        style="font-size:0.9rem;">
+                                </div>
+                            </div>
+                            <!-- Secondary -->
+                            <div>
+                                <label style="font-size:0.8rem; margin-bottom:0.2rem;">Secondary</label>
+                                <div style="display:flex; gap:5px;">
+                                    <input type="color" id="editColorPicker2"
+                                        style="width:40px; padding:0; height:38px;">
+                                    <input type="text" id="editSecondaryColor" placeholder="#3D5A5B"
+                                        style="font-size:0.9rem;">
+                                </div>
+                            </div>
+                            <!-- Accent -->
+                            <div>
+                                <label style="font-size:0.8rem; margin-bottom:0.2rem;">Accent</label>
+                                <div style="display:flex; gap:5px;">
+                                    <input type="color" id="editColorPicker3"
+                                        style="width:40px; padding:0; height:38px;">
+                                    <input type="text" id="editAccentColor" placeholder="#F2CC8F"
+                                        style="font-size:0.9rem;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Logo URL</label>
+                        <input type="text" id="editLogoUrl" placeholder="https://..."
+                            oninput="updateLogoPreview(this.value)">
+                        <div
+                            style="margin-top:10px; background:#f9fafb; border:1px dashed #ccc; border-radius:8px; padding:10px; text-align:center; min-height:80px; display:flex; align-items:center; justify-content:center;">
+                            <img id="logoPreview" src="" alt="Logo Preview"
+                                style="max-height:60px; max-width:100%; display:none;">
+                            <span id="logoPlaceholder" style="color:#aaa; font-size:0.9rem;">Logo Preview</span>
+                        </div>
+                    </div>
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-top:1rem;">
+                        * Branding settings only apply to Premium plans.
+                    </p>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeSchoolDetails()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <script src="firebase-config.js"></script>
+
+    <script>
+        // Check authentication and role
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Check if user is super admin
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            if (!userDoc.exists || userDoc.data().role !== 'superAdmin') {
+                alert('Access denied. Super Admin only.');
+                await auth.signOut();
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Update UI with user info
+            const userData = userDoc.data();
+            document.getElementById('userName').textContent = userData.displayName || 'Super Admin';
+            document.getElementById('userAvatar').textContent = (userData.displayName || 'SA').substring(0, 2).toUpperCase();
+
+            // Load dashboard data
+            loadDashboard();
+        });
+
+        // Sign out
+        document.getElementById('signOutBtn').addEventListener('click', async () => {
+            await auth.signOut();
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        });
+
+        // Modal controls
+        const modal = document.getElementById('schoolModal');
+        const addSchoolBtn = document.getElementById('addSchoolBtn');
+        const closeModal = document.getElementById('closeModal');
+        const cancelModal = document.getElementById('cancelModal');
+
+        addSchoolBtn.addEventListener('click', () => modal.classList.add('show'));
+        closeModal.addEventListener('click', () => modal.classList.remove('show'));
+        cancelModal.addEventListener('click', () => modal.classList.remove('show'));
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.remove('show');
+        });
+
+        // Global state
+        let allSchools = [];
+
+        // Load dashboard data
+        async function loadDashboard() {
+            try {
+                // Load schools
+                const schoolsSnapshot = await db.collection('schools').get();
+                allSchools = [];
+                schoolsSnapshot.forEach(doc => {
+                    allSchools.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Load student counts for each school (live count)
+                const studentCountPromises = allSchools.map(async (school) => {
+                    try {
+                        const studentsSnapshot = await db.collection('students')
+                            .where('schoolId', '==', school.id)
+                            .get();
+                        school.studentCount = studentsSnapshot.size;
+                    } catch (e) {
+                        console.warn(`Could not count students for ${school.name}:`, e);
+                        school.studentCount = 0;
+                    }
+                });
+                await Promise.all(studentCountPromises);
+
+                // Update stats
+                document.getElementById('totalSchools').textContent = allSchools.length;
+                document.getElementById('activeSchools').textContent = allSchools.filter(s => s.status === 'active').length;
+
+                // Load total users
+                const usersSnapshot = await db.collection('users').get();
+                document.getElementById('totalUsers').textContent = usersSnapshot.size;
+
+                // Render schools table
+                renderSchoolsTable(allSchools);
+
+                // Load Enquiries
+                loadEnquiries();
+
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+
+        // Render schools table
+        function renderSchoolsTable(schools) {
+            const tbody = document.getElementById('schoolsTable');
+
+            if (schools.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🏫</div>
+                                <p>No schools yet. Add your first school!</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = schools.map(school => `
+                <tr>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            ${school.branding?.logoUrl ? `<img src="${school.branding.logoUrl}" style="width:32px; height:32px; object-fit:contain; border-radius:4px; border:1px solid #eee;">` : '<span style="font-size:1.5rem;">🏫</span>'}
+                            <div>
+                                <strong>${school.name}</strong>
+                                ${school.subscriptionPlan === 'premium' ? '<span style="background:linear-gradient(135deg, #ffd700, #b8860b); color:white; padding:2px 6px; border-radius:4px; font-size:0.7rem; margin-left:5px; text-transform:uppercase; font-weight:700;">Premium</span>' : ''}
+                            </div>
+                        </div>
+                    </td>
+                    <td>${school.adminEmail || '-'}</td>
+                    <td>${school.studentCount || 0}</td>
+                    <td>
+                        <span class="status-badge status-${school.status || 'active'}">
+                            ${school.status || 'active'}
+                        </span>
+                    </td>
+                    <td>${formatDate(school.createdAt)}</td>
+                    <td>
+                        <button class="btn btn-outline action-btn" onclick="viewSchool('${school.id}')">View</button>
+                        <button class="btn btn-outline action-btn" onclick="toggleSchoolStatus('${school.id}', '${school.status}')">
+                            ${school.status === 'suspended' ? 'Activate' : 'Suspend'}
+                        </button>
+                        <button class="btn btn-outline action-btn" style="color:#ef4444; border-color:#fecaca;" onclick="deleteSchool('${school.id}', '${school.name.replace(/'/g, "\\'")}')">
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Format date
+        function formatDate(timestamp) {
+            if (!timestamp) return '-';
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        // Create school form submission
+        document.getElementById('schoolForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const schoolName = document.getElementById('schoolName').value.trim();
+            const schoolEmail = document.getElementById('schoolEmail').value.trim();
+            const schoolPhone = document.getElementById('schoolPhone').value.trim();
+            const schoolAddress = document.getElementById('schoolAddress').value.trim();
+            const subscriptionPlan = document.getElementById('subscriptionPlan').value;
+            const adminName = document.getElementById('adminName').value.trim();
+            const adminEmail = document.getElementById('adminEmail').value.trim();
+
+            try {
+                // Generate school ID and invite token
+                const schoolId = 'school_' + Date.now();
+                const inviteToken = generateToken();
+
+                // Create school document
+                await db.collection('schools').doc(schoolId).set({
+                    name: schoolName,
+                    email: schoolEmail,
+                    phone: schoolPhone,
+                    address: schoolAddress,
+                    adminEmail: adminEmail,
+                    status: 'active',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdBy: auth.currentUser.uid,
+                    studentCount: 0,
+                    subscriptionPlan: subscriptionPlan,
+                    branding: {}, // Initialize branding object
+                    settings: {
+                        pickupCodeExpiry: 24,
+                        allowParentSelfSignout: true,
+                        geofenceRadius: 100
+                    }
+                });
+
+                // Create admin invite
+                await db.collection('adminInvites').doc(inviteToken).set({
+                    email: adminEmail,
+                    displayName: adminName,
+                    role: 'admin',
+                    schoolId: schoolId,
+                    status: 'pending',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdBy: auth.currentUser.uid
+                });
+
+                // Generate invite URL
+                const baseUrl = window.location.origin;
+                const inviteUrl = `${baseUrl}/admin-signup.html?token=${inviteToken}`;
+
+                // Send automatic email to admin
+                try {
+                    const sendEmailFn = firebase.functions().httpsCallable('sendInviteEmail');
+                    const htmlBody = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head><meta charset="utf-8"></head>
+                        <body style="margin:0; padding:0; font-family:'Segoe UI',sans-serif; background:#f4f7fa;">
+                            <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px; margin:0 auto; background:#fff;">
+                                <tr>
+                                    <td style="background:linear-gradient(135deg,#4f46e5,#7c3aed); padding:30px; text-align:center;">
+                                        <h1 style="color:#fff; margin:0; font-size:28px;">Welcome to SurePickup!</h1>
+                                        <p style="color:#e0e7ff; margin:10px 0 0 0;">Admin Account Setup</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:40px 30px;">
+                                        <h2 style="color:#1e293b; margin:0 0 20px 0;">Hello ${adminName}!</h2>
+                                        <p style="color:#475569; line-height:1.6;">
+                                            You've been invited to be the administrator for <strong>${schoolName}</strong> on the SurePickup student pickup system.
+                                        </p>
+                                        <p style="color:#475569; line-height:1.6;">
+                                            Click the button below to complete your account setup:
+                                        </p>
+                                        <div style="text-align:center; margin:30px 0;">
+                                            <a href="${inviteUrl}" style="display:inline-block; background:linear-gradient(135deg,#10b981,#059669); color:#fff; text-decoration:none; padding:16px 40px; border-radius:8px; font-size:16px; font-weight:600;">
+                                                Complete Setup
+                                            </a>
+                                        </div>
+                                        <p style="color:#64748b; font-size:13px; margin:20px 0 10px 0;">
+                                            If the button doesn't work, copy and paste this link into your browser:
+                                        </p>
+                                        <p style="color:#3b82f6; font-size:12px; word-break:break-all; background:#f1f5f9; padding:10px; border-radius:6px;">
+                                            ${inviteUrl}
+                                        </p>
+                                        <p style="color:#94a3b8; font-size:14px; margin-top:20px;">
+                                            <strong>Note:</strong> This invite expires in 24 hours.
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="background:#1e293b; padding:25px 30px; text-align:center;">
+                                        <p style="color:#94a3b8; font-size:13px; margin:0;">© ${new Date().getFullYear()} SurePickup. All rights reserved.</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </body>
+                        </html>
+                    `;
+                    await sendEmailFn({
+                        to: adminEmail,
+                        subject: `🎉 You're Invited! Admin Access for ${schoolName}`,
+                        html: htmlBody,
+                        schoolId: schoolId
+                    });
+                    console.log('✅ Admin invite email sent to:', adminEmail);
+                } catch (emailErr) {
+                    console.error('⚠️ Email sending failed:', emailErr);
+                    // Continue anyway - show modal with link as fallback
+                }
+
+                // Show success with copyable link
+                modal.classList.remove('show');
+                e.target.reset();
+
+                showInviteModal(schoolName, adminEmail, inviteUrl, true);
+                loadDashboard();
+
+            } catch (error) {
+                console.error('Error creating school:', error);
+                alert('Error creating school: ' + error.message);
+            }
+        });
+
+        // Load Enquiries
+        async function loadEnquiries() {
+            try {
+                const snapshot = await db.collection('demo_requests').orderBy('createdAt', 'desc').limit(50).get();
+                const enquiries = [];
+                snapshot.forEach(doc => {
+                    enquiries.push({ id: doc.id, ...doc.data() });
+                });
+                renderEnquiriesTable(enquiries);
+            } catch (error) {
+                console.error("Error loading enquiries:", error);
+                document.getElementById('enquiriesTable').innerHTML = `<tr><td colspan="8" style="color:red; text-align:center;">Error loading data: ${error.message}</td></tr>`;
+            }
+        }
+
+        function renderEnquiriesTable(enquiries) {
+            const tbody = document.getElementById('enquiriesTable');
+            if (enquiries.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><p>No enquiries yet.</p></div></td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = enquiries.map(req => {
+                const isNew = req.status === 'new' || !req.status;
+                const statusBadge = isNew
+                    ? `<span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:12px; font-weight:bold; font-size:0.8rem;">NEW</span>`
+                    : `<span style="background:#f3f4f6; color:#374151; padding:2px 8px; border-radius:12px; font-size:0.8rem;">Contacted</span>`;
+
+                return `
+                <tr style="${isNew ? 'background:#f0f9ff;' : ''}">
+                    <td>${formatDate(req.createdAt)}</td>
+                    <td><strong>${req.name || '-'}</strong></td>
+                    <td>${req.school || '-'}</td>
+                    <td>
+                        <div>${req.email || '-'}</div>
+                        <div style="font-size:0.8rem; color:#666;">${req.phone || ''}</div>
+                    </td>
+                    <td>${req.role || '-'}</td>
+                    <td>
+                        <div style="font-size:0.85rem;">Students: ${req.studentCount || '-'}</div>
+                        <div style="font-size:0.8rem; color:#666; font-style:italic;">"${req.message ? req.message.substring(0, 50) + '...' : ''}"</div>
+                    </td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        ${isNew ? `<button class="btn btn-success" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="markAsContacted('${req.id}')">✓ Mark Done</button>` : '-'}
+                    </td>
+                </tr>
+                `;
+            }).join('');
+        }
+
+        async function markAsContacted(id) {
+            if (!confirm('Mark this enquiry as contacted?')) return;
+            try {
+                await db.collection('demo_requests').doc(id).update({ status: 'contacted' });
+                loadEnquiries(); // Reload
+            } catch (err) {
+                alert('Error updating status: ' + err.message);
+            }
+        }
+        function generateToken() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let token = '';
+            for (let i = 0; i < 32; i++) {
+                token += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return token;
+        }
+
+        // Show invite link modal
+        function showInviteModal(schoolName, adminEmail, inviteUrl, emailSent = false) {
+            const emailStatus = emailSent
+                ? `<div style="background:#dcfce7; border:1px solid #86efac; padding:1rem; border-radius:8px; margin-bottom:1rem; color:#166534;">
+                       ✅ <strong>Email sent successfully!</strong> The admin will receive their invite shortly.
+                   </div>`
+                : `<div style="background:#fef3c7; border:1px solid #fcd34d; padding:1rem; border-radius:8px; margin-bottom:1rem; color:#92400e;">
+                       ⚠️ Email could not be sent automatically. Please share the link below manually.
+                   </div>`;
+
+            const modalHtml = `
+                <div class="modal-overlay show" id="inviteModal" style="z-index: 1001;">
+                    <div class="modal">
+                        <div class="modal-header">
+                            <h3 class="modal-title">✅ School Created!</h3>
+                            <button class="modal-close" onclick="document.getElementById('inviteModal').remove()">&times;</button>
+                        </div>
+                        <p style="margin-bottom: 1rem;"><strong>${schoolName}</strong> has been created successfully.</p>
+                        ${emailStatus}
+                        <p style="margin-bottom: 0.5rem; color: var(--text-muted); font-size:0.9rem;">
+                            Backup link for <strong>${adminEmail}</strong>:
+                        </p>
+                        <div style="background: var(--cream); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; word-break: break-all; font-family: monospace; font-size: 0.85rem;">
+                            ${inviteUrl}
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="copyInviteLink('${inviteUrl}')">
+                            📋 Copy Invite Link
+                        </button>
+                        <p style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted); text-align: center;">
+                            This link expires in 24 hours.
+                        </p>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        // Copy invite link to clipboard
+        function copyInviteLink(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Invite link copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                prompt('Copy this link:', url);
+            });
+        }
+
+        // View school details
+        async function viewSchool(schoolId) {
+            try {
+                const doc = await db.collection('schools').doc(schoolId).get();
+                if (!doc.exists) return alert('School not found');
+
+                const data = doc.data();
+
+                // Populate Form
+                document.getElementById('editSchoolId').value = schoolId;
+                document.getElementById('editSchoolName').value = data.name || '';
+                document.getElementById('editSchoolPhone').value = data.phone || '';
+                document.getElementById('editSchoolEmail').value = data.email || '';
+                document.getElementById('editSchoolAddress').value = data.address || '';
+                document.getElementById('editAdminEmail').value = data.adminEmail || '';
+
+                // Settings
+                document.getElementById('editPlan').value = data.subscriptionPlan || 'starter';
+                document.getElementById('editExpiry').value = data.settings?.pickupCodeExpiry || 24;
+                document.getElementById('editGeofence').value = data.settings?.geofenceRadius || 100;
+                document.getElementById('editSelfSignout').checked = data.settings?.allowParentSelfSignout !== false; // Default true
+
+                // Branding
+                const branding = data.branding || {};
+                document.getElementById('editPrimaryColor').value = branding.primaryColor || '';
+                document.getElementById('editColorPicker1').value = branding.primaryColor || '#E07A5F';
+
+                document.getElementById('editSecondaryColor').value = branding.secondaryColor || '';
+                document.getElementById('editColorPicker2').value = branding.secondaryColor || '#3D5A5B';
+
+                document.getElementById('editAccentColor').value = branding.accentColor || '';
+                document.getElementById('editColorPicker3').value = branding.accentColor || '#F2CC8F';
+
+                document.getElementById('editLogoUrl').value = branding.logoUrl || '';
+                updateLogoPreview(branding.logoUrl || '');
+
+                // Show Modal
+                document.getElementById('schoolDetailsModal').classList.add('show');
+
+            } catch (err) {
+                console.error(err);
+                alert('Error fetching details');
+            }
+        }
+
+        function updateLogoPreview(url) {
+            const img = document.getElementById('logoPreview');
+            const placeholder = document.getElementById('logoPlaceholder');
+            if (url) {
+                img.src = url;
+                img.style.display = 'block';
+                placeholder.style.display = 'none';
+            } else {
+                img.style.display = 'none';
+                placeholder.style.display = 'block';
+            }
+        }
+
+        function closeSchoolDetails() {
+            document.getElementById('schoolDetailsModal').classList.remove('show');
+        }
+
+        function switchDetailTab(tabName, btn) {
+            // Hide all tabs
+            document.querySelectorAll('.detail-tab-content').forEach(el => el.style.display = 'none');
+            // Show selected
+            document.getElementById(`tab-${tabName}`).style.display = 'block';
+
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+        }
+
+        // Color picker sync
+        function syncColor(pickerId, inputId) {
+            const picker = document.getElementById(pickerId);
+            const input = document.getElementById(inputId);
+            picker.addEventListener('input', (e) => input.value = e.target.value);
+            input.addEventListener('input', (e) => picker.value = e.target.value);
+        }
+        syncColor('editColorPicker1', 'editPrimaryColor');
+        syncColor('editColorPicker2', 'editSecondaryColor');
+        syncColor('editColorPicker3', 'editAccentColor');
+
+
+        // Save School Details
+        document.getElementById('schoolDetailsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const schoolId = document.getElementById('editSchoolId').value;
+            const btn = e.submitter;
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = "Saving...";
+
+            try {
+                const updates = {
+                    name: document.getElementById('editSchoolName').value,
+                    phone: document.getElementById('editSchoolPhone').value,
+                    email: document.getElementById('editSchoolEmail').value,
+                    address: document.getElementById('editSchoolAddress').value,
+                    subscriptionPlan: document.getElementById('editPlan').value,
+                    settings: {
+                        pickupCodeExpiry: parseInt(document.getElementById('editExpiry').value),
+                        geofenceRadius: parseInt(document.getElementById('editGeofence').value),
+                        allowParentSelfSignout: document.getElementById('editSelfSignout').checked
+                    },
+                    branding: {
+                        primaryColor: document.getElementById('editPrimaryColor').value,
+                        secondaryColor: document.getElementById('editSecondaryColor').value,
+                        accentColor: document.getElementById('editAccentColor').value,
+                        logoUrl: document.getElementById('editLogoUrl').value
+                    }
+                };
+
+                await db.collection('schools').doc(schoolId).update(updates);
+
+                alert('School updated successfully!');
+                closeSchoolDetails();
+                loadDashboard(); // Refresh table
+
+            } catch (error) {
+                console.error("Update failed", error);
+                alert("Failed to update school: " + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        });
+
+        // Toggle school status
+        async function toggleSchoolStatus(schoolId, currentStatus) {
+            const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
+            const confirmMsg = newStatus === 'suspended'
+                ? 'Are you sure you want to suspend this school? Users will not be able to access the system.'
+                : 'Are you sure you want to reactivate this school?';
+
+            if (!confirm(confirmMsg)) return;
+
+            try {
+                await db.collection('schools').doc(schoolId).update({
+                    status: newStatus
+                });
+                loadDashboard();
+            } catch (error) {
+                console.error('Error updating school:', error);
+                alert('Error updating school status');
+            }
+        }
+
+        // Delete school completely
+        async function deleteSchool(schoolId, schoolName) {
+            const confirmMsg = `⚠️ DANGER: This will permanently delete "${schoolName}" and ALL associated data:\n\n• All students\n• All parents/users linked to this school\n• All pickup records\n• All invites\n\nThis action CANNOT be undone!\n\nType "DELETE" to confirm:`;
+
+            const userInput = prompt(confirmMsg);
+            if (userInput !== 'DELETE') {
+                if (userInput !== null) alert('Deletion cancelled. You must type DELETE exactly.');
+                return;
+            }
+
+            try {
+                // Show loading
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = 'Deleting...';
+
+                // Delete related data in batches
+                const batchSize = 400;
+
+                // 1. Delete students
+                const studentsSnap = await db.collection('students').where('schoolId', '==', schoolId).get();
+                if (studentsSnap.size > 0) {
+                    let batch = db.batch();
+                    let count = 0;
+                    for (const doc of studentsSnap.docs) {
+                        batch.delete(doc.ref);
+                        count++;
+                        if (count >= batchSize) {
+                            await batch.commit();
+                            batch = db.batch();
+                            count = 0;
+                        }
+                    }
+                    if (count > 0) await batch.commit();
+                }
+
+                // 2. Delete users linked to this school
+                const usersSnap = await db.collection('users').where('schoolId', '==', schoolId).get();
+                if (usersSnap.size > 0) {
+                    let batch = db.batch();
+                    let count = 0;
+                    for (const doc of usersSnap.docs) {
+                        batch.delete(doc.ref);
+                        count++;
+                        if (count >= batchSize) {
+                            await batch.commit();
+                            batch = db.batch();
+                            count = 0;
+                        }
+                    }
+                    if (count > 0) await batch.commit();
+                }
+
+                // 3. Delete pickups
+                const pickupsSnap = await db.collection('pickups').where('schoolId', '==', schoolId).get();
+                if (pickupsSnap.size > 0) {
+                    let batch = db.batch();
+                    let count = 0;
+                    for (const doc of pickupsSnap.docs) {
+                        batch.delete(doc.ref);
+                        count++;
+                        if (count >= batchSize) {
+                            await batch.commit();
+                            batch = db.batch();
+                            count = 0;
+                        }
+                    }
+                    if (count > 0) await batch.commit();
+                }
+
+                // 4. Delete admin invites for this school
+                const invitesSnap = await db.collection('adminInvites').where('schoolId', '==', schoolId).get();
+                if (invitesSnap.size > 0) {
+                    let batch = db.batch();
+                    for (const doc of invitesSnap.docs) {
+                        batch.delete(doc.ref);
+                    }
+                    await batch.commit();
+                }
+
+                // 5. Finally delete the school document
+                await db.collection('schools').doc(schoolId).delete();
+
+                alert(`✅ School "${schoolName}" and all related data have been deleted.`);
+                loadDashboard();
+
+                alert(`✅ School "${schoolName}" and all related data have been deleted.`);
+                loadDashboard();
+
+            } catch (error) {
+                console.error('Error deleting school:', error);
+                alert('Error deleting school: ' + error.message);
+            }
+        }
+        // ============================================
+        // MIGRATION TOOLS
+        // ============================================
+
+        let orphanSnapshots = [];
+
+        async function scanOrphans() {
+            const btn = document.getElementById('scanBtn');
+            const status = document.getElementById('orphanCount');
+            const actions = document.getElementById('migrationActions');
+
+            btn.disabled = true;
+            btn.textContent = "Scanning...";
+            status.textContent = "";
+            actions.style.display = 'none';
+
+            try {
+                // Scan students who DON'T have a schoolId
+                // One-off scan of all students
+                const snap = await db.collection('students').get();
+
+                orphanSnapshots = snap.docs.filter(doc => !doc.data().schoolId);
+
+                status.textContent = `${orphanSnapshots.length} orphans found`;
+
+                if (orphanSnapshots.length > 0) {
+                    actions.style.display = 'block';
+                    populateSchoolDropdown();
+                } else {
+                    alert('All students are properly assigned to schools! ✅');
+                }
+
+            } catch (error) {
+                console.error("Scan failed", error);
+                alert("Scan failed: " + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Scan for Orphaned Students";
+            }
+        }
+
+        function populateSchoolDropdown() {
+            const select = document.getElementById('targetSchool');
+            select.innerHTML = '<option value="">-- Select Target School --</option>';
+
+            allSchools.forEach(school => {
+                const opt = document.createElement('option');
+                opt.value = school.id;
+                opt.textContent = school.name;
+                select.appendChild(opt);
+            });
+        }
+
+        async function migrateOrphans() {
+            const targetId = document.getElementById('targetSchool').value;
+            if (!targetId) {
+                alert("Please select a school to assign these students to.");
+                return;
+            }
+
+            const btn = document.getElementById('migrateBtn');
+            btn.disabled = true;
+            btn.textContent = "Migrating...";
+
+            try {
+                const batchSize = 400; // conservative batch limit
+                let batch = db.batch();
+                let count = 0;
+                let total = 0;
+
+                for (const doc of orphanSnapshots) {
+                    const ref = db.collection('students').doc(doc.id);
+                    batch.update(ref, { schoolId: targetId });
+                    count++;
+
+                    if (count >= batchSize) {
+                        await batch.commit();
+                        total += count;
+                        count = 0;
+                        batch = db.batch(); // new batch
+                    }
+                }
+
+                if (count > 0) {
+                    await batch.commit();
+                    total += count;
+                }
+
+                alert(`Successfully migrated ${total} students to the selected school!`);
+
+                // Reset UI
+                document.getElementById('migrationActions').style.display = 'none';
+                document.getElementById('orphanCount').textContent = "0 orphans found";
+                orphanSnapshots = [];
+
+            } catch (error) {
+                console.error("Migration failed", error);
+                alert("Migration failed: " + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Migrate Students";
+            }
+        }
+    </script>
+</body>
+
+</html>

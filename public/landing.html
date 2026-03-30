@@ -8,6 +8,7 @@
     <title>SurePickup - Student Pickup Made Simple</title>
     <link
         href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap"
         rel="stylesheet">
     <link rel="icon" type="image/png" href="images/logo.png">
     <style>
@@ -155,6 +156,8 @@
         .hero-bg-4 {
             background-image: url('images/hero-bg-4.png');
         }
+
+
 
         .hero-bg-6 {
             background-image: url('images/hero-bg-6.png');
@@ -337,6 +340,7 @@
             font-size: 1.5rem;
             font-weight: 700;
             color: var(--teal);
+            color: var(--teal);
             display: flex;
             align-items: center;
             gap: 10px;
@@ -366,6 +370,26 @@
 
         .nav-links a:hover {
             color: var(--coral);
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--charcoal);
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
         }
 
         .btn {
@@ -1077,137 +1101,117 @@
 
         @media (max-width: 768px) {
             .navbar {
-                padding: 1rem;
-                flex-direction: column;
-                gap: 1rem;
+                padding: 0.5rem 4%;
+                justify-content: space-between;
             }
 
-            /* Show nav links on mobile (simple stack) instead of hamburger */
+            .logo {
+                font-size: 1.2rem;
+            }
+
+            .logo img {
+                height: 32px;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+                font-size: 1.25rem;
+                z-index: 1002;
+            }
+
             .nav-links {
-                display: flex;
-                flex-wrap: wrap;
+                position: fixed;
+                top: 0;
+                left: -100%;
+                width: 70%;
+                height: 100vh;
+                background: rgba(255, 255, 255, 0.98);
+                backdrop-filter: blur(10px);
+                flex-direction: column;
                 justify-content: center;
-                gap: 0.8rem;
-                width: 100%;
+                align-items: center;
+                gap: 2rem;
+                transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                box-shadow: 5px 0 30px rgba(0, 0, 0, 0.1);
+                z-index: 1001;
             }
 
-            /* Make nav links smaller on mobile to fit better */
+            .nav-links.active {
+                left: 0;
+            }
+
             .nav-links a {
-                font-size: 0.9rem;
-                padding: 0.25rem 0.5rem;
-                background: rgba(255, 255, 255, 0.8);
-                border-radius: 4px;
-            }
-
-            /* Remove the non-functional hamburger */
-            .navbar::after {
-                content: none;
+                font-size: 1.25rem;
+                color: var(--charcoal);
             }
 
             .hero {
-                padding: 6rem 5% 3rem;
+                padding: 8rem 5% 4rem;
+                text-align: center;
+            }
+
+            .hero::after {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.6));
+                z-index: 0;
+                pointer-events: none;
+            }
+
+            .hero-content {
+                position: relative;
+                z-index: 2;
+                margin: 0 auto;
             }
 
             .hero h1 {
-                font-size: 3.2rem;
-                line-height: 1.1;
+                font-size: 2.75rem;
             }
 
-            .hero-image {
-                width: 100%;
-            }
-
-            /* Fix How It Works centering */
-            .steps-container {
+            .hero-buttons {
                 justify-content: center;
-            }
-
-            .step {
-                margin-bottom: 2rem;
-            }
-
-            /* Hide arrows on mobile as they break flow */
-            .step-arrow {
-                display: none;
-            }
-
-
-
-
-            .stats-bar {
-                justify-content: center;
-                flex-wrap: wrap;
                 gap: 1rem;
             }
 
-            .stat-item {
-                min-width: 80px;
+            .hero-image {
+                display: none;
             }
 
-            /* Feature cards */
+            .stats-bar {
+                flex-direction: column;
+                gap: 1.5rem;
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                padding: 1.5rem;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-radius: 16px;
+                margin-top: 3rem;
+            }
+
+            .stat-item {
+                text-align: center;
+            }
+
             .features-grid {
                 grid-template-columns: 1fr;
                 gap: 1.5rem;
             }
 
-            .feature-card {
-                padding: 1.5rem;
-            }
-
-            /* Steps */
             .steps-container {
                 flex-direction: column;
-                gap: 1.5rem;
+                align-items: center;
+                gap: 3rem;
             }
 
             .step-arrow {
                 display: none;
             }
-
-            /* Pricing */
-            .pricing-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .pricing-card.featured {
-                transform: none;
-            }
-
-            .pricing-card {
-                padding: 1.5rem;
-            }
-
-            /* Section headers */
-            .section-header h2 {
-                font-size: 1.75rem;
-            }
-
-            /* CTA */
-            .cta h2 {
-                font-size: 1.75rem;
-            }
-
-            /* Footer */
-            .footer-links {
-                flex-direction: column;
-                gap: 1rem;
-            }
-
-            /* Carousel in hero */
-            .image-carousel {
-                max-width: 280px;
-            }
         }
 
-        /* Extra small screens */
         @media (max-width: 480px) {
             .hero h1 {
-                font-size: 1.75rem;
-            }
-
-            .btn {
-                padding: 0.75rem 1.25rem;
-                font-size: 0.9rem;
+                font-size: 2.25rem;
             }
 
             .hero-buttons {
@@ -1226,16 +1230,19 @@
 <body>
     <!-- Navigation -->
     <nav class="navbar">
+        <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
         <div class="logo">
             <img src="images/logo.png" alt="SurePickup Logo">
             Sure<span>Pickup</span>
+        </div>
+        <div class="nav-right">
+            <a href="login.html" class="btn btn-outline btn-sm">Login</a>
         </div>
         <div class="nav-links">
             <a href="#features">Features</a>
             <a href="#how-it-works">How It Works</a>
             <a href="#pricing">Pricing</a>
-            <a href="login.html" class="btn btn-outline">Login</a>
-            <a href="request-demo.html" class="btn btn-primary">Request Demo</a>
+            <a href="request-demo.html" target="_blank" class="btn btn-primary">Request Demo</a>
         </div>
     </nav>
 
@@ -1247,6 +1254,7 @@
             <div class="hero-bg-slide hero-bg-2"></div>
             <div class="hero-bg-slide hero-bg-3"></div>
             <div class="hero-bg-slide hero-bg-4"></div>
+
             <div class="hero-bg-slide hero-bg-6"></div>
             <div class="hero-bg-slide hero-bg-7"></div>
             <div class="hero-bg-slide hero-bg-8"></div>
@@ -1547,6 +1555,19 @@
         setInterval(() => {
             showBgSlide(currentBgSlide + 1);
         }, 6000);
+
+        // ===== MOBILE MENU TOGGLE =====
+        function toggleMobileMenu() {
+            const navLinks = document.querySelector('.nav-links');
+            navLinks.classList.toggle('active');
+        }
+
+        // Close menu when clicking a link
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.querySelector('.nav-links').classList.remove('active');
+            });
+        });
     </script>
 </body>
 

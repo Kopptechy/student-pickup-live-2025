@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connecting Display...</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="/firebase-config.js"></script>
+
+    <style>
+        body {
+            background: #1e1b4b;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: system-ui, -apple-system, sans-serif;
+            text-align: center;
+        }
+
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        p {
+            opacity: 0.8;
+            margin-top: 10px;
+        }
+
+        .error {
+            color: #f87171;
+            max-width: 80%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="loader" id="loader"></div>
+    <h2 id="status">Securely Connecting...</h2>
+    <p id="details">Initializing connection</p>
+
+    <script>
+        async function connect() {
+            const params = new URLSearchParams(window.location.search);
+            const q = params.get('q');
+
+            if (!q) {
+                showError("Invalid link. No credentials found.");
+                return;
+            }
+
+            try {
+                // Decode Base64 (email:password)
+                const decoded = atob(q);
+                const [email, password] = decoded.split(':');
+
+                if (!email || !password) {
+                    throw new Error("Malformed credentials");
+                }
+
+                document.getElementById('details').textContent = "Authenticating as " + email + "...";
+
+                // Sign Out current user if any (to ensure clean slate)
+                if (auth.currentUser) {
+                    await auth.signOut();
+                }
+
+                // Sign In
+                await auth.signInWithEmailAndPassword(email, password);
+
+                document.getElementById('status').textContent = "Connected! ✅";
+                document.getElementById('details').textContent = "Redirecting to Display...";
+
+                // Redirect
+                setTimeout(() => {
+                    window.location.href = 'display.html';
+                }, 1000);
+
+            } catch (error) {
+                console.error("Connection failed", error);
+                showError(error.message);
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('status').textContent = "Connection Failed";
+            document.getElementById('details').className = 'error';
+            document.getElementById('details').textContent = msg;
+
+            // Add manual link
+            const link = document.createElement('a');
+            link.href = 'login.html';
+            link.style.color = '#fff';
+            link.style.marginTop = '20px';
+            link.style.display = 'inline-block';
+            link.textContent = 'Go to Manual Login';
+            document.body.appendChild(link);
+        }
+
+        // Run
+        connect();
+    </script>
+</body>
+
+</html>

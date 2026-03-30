@@ -11,10 +11,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js">
     </script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-functions-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
     <script src="firebase-config.js"></script>
-    <link rel="stylesheet" href="admin-layout.css?v=2">
-    <title>Admin Panel - SurePickup</title>
+    <link rel="stylesheet" href="admin-layout.css">
 </head>
 
 <body>
@@ -47,14 +45,8 @@
                 <div class="nav-item" onclick="switchTab('history')" id="nav-history">
                     <span class="nav-icon">📋</span> History
                 </div>
-                <div class="nav-item" onclick="switchTab('punctuality')" id="nav-punctuality">
-                    <span class="nav-icon">📊</span> Punctuality
-                </div>
                 <div class="nav-item" onclick="switchTab('session')" id="nav-session">
                     <span class="nav-icon">📅</span> Session
-                </div>
-                <div class="nav-item" onclick="switchTab('buses')" id="nav-buses">
-                    <span class="nav-icon">🚌</span> Buses
                 </div>
 
                 <div class="nav-group-label">SYSTEM</div>
@@ -173,228 +165,222 @@
 
                 <!-- Announcements Tab -->
                 <div id="announcementsTab" class="tab-content">
-                    <div class="settings-card" style="max-width: 960px;">
-                        <h2 style="margin-bottom: 0.5rem;">Announcement Library</h2>
-                        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Create announcements once and
-                            toggle them on/off anytime.</p>
+                    <div class="settings-card" style="max-width: 900px;">
+                        <h2 style="margin-bottom: 2rem;"> Manage Announcements</h2>
 
-                        <!-- Create New (Collapsible) -->
-                        <div
-                            style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;">
-                            <h3 style="margin: 0 0 1rem 0; color: #0369a1; font-size: 1rem;">+ Add New Announcement</h3>
-                            <div class="form-group" style="margin-bottom: 1rem;">
-                                <textarea id="newAnnouncementMsg" class="form-control" rows="2"
-                                    placeholder="e.g. Rainy Day Protocol in effect!"
-                                    style="resize: vertical;"></textarea>
-                            </div>
-
-                            <div class="form-group" style="margin-bottom: 1rem;">
-                                <label class="form-label" style="font-size: 0.85rem;">Target Classes (Leave empty = All
-                                    Classes)</label>
-                                <div style="margin-bottom: 5px; font-size: 0.85rem; display: flex; gap: 0.5rem;">
-                                    <button type="button" class="btn btn-sm btn-secondary"
-                                        onclick="selectAllClassesForAnn()">Select All</button>
-                                    <button type="button" class="btn btn-sm btn-secondary"
-                                        onclick="deselectAllClassesForAnn()">Clear</button>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                            <!-- Create New -->
+                            <div>
+                                <h3 style="margin-bottom: 1rem; color: var(--primary);">New Announcement</h3>
+                                <div class="form-group mb-md">
+                                    <label class="form-label">Message</label>
+                                    <input type="text" id="newAnnouncementMsg" class="form-control"
+                                        placeholder="e.g. Rainy Day Protocol in effect!">
                                 </div>
-                                <div id="annClassGrid" class="class-checkbox-grid"></div>
+
+                                <div class="form-group mb-md">
+                                    <label class="form-label">Target Classes (Optional - Leave empty for All)</label>
+                                    <div style="margin-bottom: 5px; font-size: 0.85rem;">
+                                        <button type="button" class="btn btn-sm btn-secondary"
+                                            onclick="selectAllClassesForAnn()">Select All</button>
+                                        <button type="button" class="btn btn-sm btn-secondary"
+                                            onclick="deselectAllClassesForAnn()">Clear</button>
+                                    </div>
+                                    <div id="annClassGrid" class="class-checkbox-grid">
+                                        <!-- Populated dynamically -->
+                                    </div>
+                                </div>
+
+                                <button class="btn btn-primary w-full" onclick="publishAnnouncement()"> Publish
+                                    Announcement</button>
                             </div>
 
-                            <button class="btn btn-primary" onclick="publishAnnouncement()"
-                                style="padding: 0.6rem 2rem;">Save to Library</button>
-                        </div>
-
-                        <!-- Library List -->
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                            <h3 style="margin: 0; color: var(--text-dark);">Saved Announcements</h3>
-                            <span id="annActiveCount" style="font-size: 0.85rem; color: var(--text-secondary);"></span>
-                        </div>
-                        <div id="activeAnnouncementsList" style="display: flex; flex-direction: column; gap: 0.75rem;">
-                            <div class="empty-state" style="padding: 1rem;">Loading...</div>
+                            <!-- Active List -->
+                            <div style="border-left: 1px solid var(--border); padding-left: 2rem;">
+                                <h3 style="margin-bottom: 1rem; color: var(--text-dark);">Active Announcements</h3>
+                                <div id="activeAnnouncementsList"
+                                    style="display: flex; flex-direction: column; gap: 1rem;">
+                                    <div class="empty-state" style="padding: 1rem;">Loading...</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Students Tab -->
-                <div id="studentsTab" class="tab-content active">
-                    <div class="filter-bar">
-                        <div class="search-box">
-                            <input type="text" id="studentSearch" class="form-input" style="width: 250px;"
-                                placeholder=" Search by name or book rental no...">
-                        </div>
-                        <select id="filterYear" class="form-control">
-                            <option value="">All Years</option>
-                        </select>
-                        <select id="filterClass" class="form-control">
-                            <option value="">All Classes</option>
-                        </select>
-                        <button class="btn btn-primary" onclick="openAddStudentModal()">+ Add Student</button>
-                        <button class="btn btn-success" onclick="openBatchUploadModal()"> Import / Batch
-                            Upload</button>
-                        <button class="btn btn-secondary" onclick="exportStudentsCSV()"
-                            style="background:#475569; color:white;">📥 Export CSV</button>
-
-                        <!-- Bulk Actions (shown when students selected) -->
-                        <div id="bulkActionsBar"
-                            style="display: none; gap: 0.5rem; align-items: center; margin-left: auto; padding: 0.5rem; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 8px;">
-                            <span style="color: white; font-weight: 600; font-size: 0.9rem;"><span
-                                    id="selectedCount">0</span>
-                                selected</span>
-                            <select id="bulkYearSelect" class="form-control"
-                                style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.85rem;">
-                                <option value="">Year...</option>
-                                <option value="7">Year 7</option>
-                                <option value="8">Year 8</option>
-                                <option value="9">Year 9</option>
-                                <option value="10">Year 10</option>
-                                <option value="11">Year 11</option>
-                                <option value="12">Year 12</option>
-                            </select>
-                            <select id="bulkClassSelect" class="form-control"
-                                style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.85rem;">
-                                <option value="">Class...</option>
-                            </select>
-                            <button class="btn btn-sm" onclick="bulkChangeStudents()"
-                                style="background: #10b981; color: white; padding: 0.35rem 0.75rem;">œ“ Apply</button>
-                            <button class="btn btn-sm" onclick="deleteSelected()"
-                                style="background: #ef4444; color: white; padding: 0.35rem 0.75rem;"></button>
-                        </div>
-                        <button class="btn btn-danger" onclick="deleteAllStudents()"> Delete All</button>
+            <!-- Students Tab -->
+            <div id="studentsTab" class="tab-content active">
+                <div class="filter-bar">
+                    <div class="search-box">
+                        <input type="text" id="searchInput" class="form-control" placeholder=" Search students...">
                     </div>
+                    <select id="filterYear" class="form-control">
+                        <option value="">All Years</option>
+                    </select>
+                    <select id="filterClass" class="form-control">
+                        <option value="">All Classes</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="openAddStudentModal()">+ Add Student</button>
+                    <button class="btn btn-success" onclick="openBatchUploadModal()"> Import / Batch
+                        Upload</button>
+                    <button class="btn btn-secondary" onclick="exportStudentsCSV()"
+                        style="background:#475569; color:white;">📥 Export CSV</button>
 
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
-                                    <th>Adm. No.</th>
-                                    <th>Name</th>
-                                    <th>Year</th>
-                                    <th>Class</th>
-                                    <th>Family Link</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="studentsTableBody">
-                                <tr>
-                                    <td colspan="5" class="empty-table">Loading students...</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <!-- Bulk Actions (shown when students selected) -->
+                    <div id="bulkActionsBar"
+                        style="display: none; gap: 0.5rem; align-items: center; margin-left: auto; padding: 0.5rem; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 8px;">
+                        <span style="color: white; font-weight: 600; font-size: 0.9rem;"><span
+                                id="selectedCount">0</span>
+                            selected</span>
+                        <select id="bulkYearSelect" class="form-control"
+                            style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.85rem;">
+                            <option value="">Year...</option>
+                            <option value="7">Year 7</option>
+                            <option value="8">Year 8</option>
+                            <option value="9">Year 9</option>
+                            <option value="10">Year 10</option>
+                            <option value="11">Year 11</option>
+                            <option value="12">Year 12</option>
+                        </select>
+                        <select id="bulkClassSelect" class="form-control"
+                            style="width: auto; padding: 0.35rem 0.5rem; font-size: 0.85rem;">
+                            <option value="">Class...</option>
+                        </select>
+                        <button class="btn btn-sm" onclick="bulkChangeStudents()"
+                            style="background: #10b981; color: white; padding: 0.35rem 0.75rem;">œ“ Apply</button>
+                        <button class="btn btn-sm" onclick="deleteSelected()"
+                            style="background: #ef4444; color: white; padding: 0.35rem 0.75rem;"></button>
                     </div>
+                    <button class="btn btn-danger" onclick="deleteAllStudents()"> Delete All</button>
                 </div>
 
-                <!-- Parent Onboarding Tab (Renamed from Family Manager) -->
-                <div id="familiesTab" class="tab-content">
-                    <h2 style="margin-top:0; margin-bottom: 1.5rem;">Parent Onboarding & Invites</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                                <th>Name</th>
+                                <th>Year</th>
+                                <th>Class</th>
+                                <th>Family Link</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentsTableBody">
+                            <tr>
+                                <td colspan="5" class="empty-table">Loading students...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
-                    <div class="responsive-grid">
+            <!-- Parent Onboarding Tab (Renamed from Family Manager) -->
+            <div id="familiesTab" class="tab-content">
+                <h2 style="margin-top:0; margin-bottom: 1.5rem;">Parent Onboarding & Invites</h2>
 
-                        <!-- Left: Create Onboarding Invite -->
-                        <div class="table-container" style="padding: 1.5rem; background: var(--bg-card);">
-                            <h3 style="margin-top:0; color: var(--primary);">1. Select Children</h3>
-                            <div class="form-group">
-                                <input type="text" id="onboardStudentSearch" class="form-control"
-                                    placeholder="Search student name..." oninput="renderOnboardStudentTable()">
+                <div class="responsive-grid">
+
+                    <!-- Left: Create Onboarding Invite -->
+                    <div class="table-container" style="padding: 1.5rem; background: var(--bg-card);">
+                        <h3 style="margin-top:0; color: var(--primary);">1. Select Children</h3>
+                        <div class="form-group">
+                            <input type="text" id="onboardStudentSearch" class="form-control"
+                                placeholder="Search student name..." oninput="renderOnboardStudentTable()">
+                            <div
+                                style="max-height: 200px; overflow-y: auto; margin-top: 0.5rem; border: 1px solid var(--border); border-radius: 6px;">
+                                <table style="width:100%; font-size: 0.9rem;">
+                                    <tbody id="onboardStudentTableBody">
+                                        <!-- Populated by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style="margin-top:0.5rem; font-size:0.9rem; font-weight:600;">Selected: <span
+                                    id="onboardSelectedCount">0</span></div>
+                        </div>
+
+                        <hr style="border: 0; border-top: 1px solid var(--border); margin: 1.5rem 0;">
+
+                        <h3 style="margin-top:0; color: var(--primary);">2. Parent Details</h3>
+                        <p style="font-size:0.9rem; color: #666; margin-bottom: 1rem;">Fill details for parents you
+                            want to
+                            invite.</p>
+
+                        <form id="onboardForm" onsubmit="generateBatchInvites(event)">
+                            <div class="form-group"
+                                style="background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <label style="font-weight:700; color:#1e293b;">Father</label>
                                 <div
-                                    style="max-height: 200px; overflow-y: auto; margin-top: 0.5rem; border: 1px solid var(--border); border-radius: 6px;">
-                                    <table style="width:100%; font-size: 0.9rem;">
-                                        <tbody id="onboardStudentTableBody">
-                                            <!-- Populated by JS -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div style="margin-top:0.5rem; font-size:0.9rem; font-weight:600;">Selected: <span
-                                        id="onboardSelectedCount">0</span></div>
-                            </div>
-
-                            <hr style="border: 0; border-top: 1px solid var(--border); margin: 1.5rem 0;">
-
-                            <h3 style="margin-top:0; color: var(--primary);">2. Parent Details</h3>
-                            <p style="font-size:0.9rem; color: #666; margin-bottom: 1rem;">Fill details for parents you
-                                want to
-                                invite.</p>
-
-                            <form id="onboardForm" onsubmit="generateBatchInvites(event)">
-                                <div class="form-group"
-                                    style="background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0;">
-                                    <label style="font-weight:700; color:#1e293b;">Father</label>
-                                    <div
-                                        style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:0.75rem; margin-top:0.5rem;">
-                                        <input type="text" id="fatherFirstName" class="form-control"
-                                            placeholder="First Name">
-                                        <input type="text" id="fatherLastName" class="form-control"
-                                            placeholder="Last Name">
-                                        <input type="email" id="fatherEmail" class="form-control"
-                                            placeholder="Email (Optional)">
-                                    </div>
-                                </div>
-
-                                <div class="form-group"
-                                    style="background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0;">
-                                    <label style="font-weight:700; color:#1e293b;">Mother</label>
-                                    <div
-                                        style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:0.75rem; margin-top:0.5rem;">
-                                        <input type="text" id="motherFirstName" class="form-control"
-                                            placeholder="First Name">
-                                        <input type="text" id="motherLastName" class="form-control"
-                                            placeholder="Last Name">
-                                        <input type="email" id="motherEmail" class="form-control"
-                                            placeholder="Email (Optional)">
-                                    </div>
-                                </div>
-
-                                <div class="form-group"
-                                    style="background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0;">
-                                    <label style="font-weight:700; color:#1e293b;">Guardian (Optional)</label>
-                                    <div
-                                        style="display:grid; grid-template-columns: 1fr 1fr auto; gap:1rem; margin-top:0.5rem;">
-                                        <input type="text" id="guardianName" class="form-control"
-                                            placeholder="Full Name">
-                                        <input type="email" id="guardianEmail" class="form-control"
-                                            placeholder="Email (Optional)">
-                                        <select id="guardianGender" class="form-control" style="min-width: 100px;">
-                                            <option value="male">Mr.</option>
-                                            <option value="female">Mrs.</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <!-- Backend Logic Helper: "Family Name" -->
-                                <div class="form-group">
-                                    <label>Family Name (System Internal)</label>
-                                    <input type="text" id="onboardFamilyName" class="form-control"
-                                        placeholder="e.g. The Okonkwo Family" required>
-                                </div>
-
-                                <button type="submit" class="btn btn-primary"
-                                    style="width:100%; padding: 1rem; font-size: 1.1rem;">Generate Invites</button>
-                            </form>
-                        </div>
-
-                        <!-- Right: Generated Invites Result -->
-                        <div>
-                            <div class="table-container" id="inviteResultsArea"
-                                style="padding: 1.5rem; background: #eef2ff; border: 1px solid #c7d2fe; display:none;">
-                                <h3 style="margin-top:0; color: #4338ca;"> Invites Generated</h3>
-                                <p style="font-size:0.9rem;">Copy these codes and send them to the parents.</p>
-                                <div id="inviteList" style="display:flex; flex-direction:column; gap:1rem;">
-                                    <!-- Populated by JS -->
-                                </div>
-                                <button class="btn btn-secondary" onclick="resetOnboardForm()"
-                                    style="margin-top:1rem; width:100%">Start New Onboarding</button>
-                            </div>
-
-                            <div class="table-container" style="margin-top: 2rem;">
-                                <h3 style="margin:0 0 1rem 0; font-size:1.1rem;">Pending Invites</h3>
-                                <div id="pendingInvitesList" style="max-height: 200px; overflow-y:auto;">
-                                    <!-- Populated later -->
+                                    style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:0.75rem; margin-top:0.5rem;">
+                                    <input type="text" id="fatherFirstName" class="form-control"
+                                        placeholder="First Name">
+                                    <input type="text" id="fatherLastName" class="form-control" placeholder="Last Name">
+                                    <input type="email" id="fatherEmail" class="form-control"
+                                        placeholder="Email (Optional)">
                                 </div>
                             </div>
-                        </div>
 
+                            <div class="form-group"
+                                style="background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <label style="font-weight:700; color:#1e293b;">Mother</label>
+                                <div
+                                    style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:0.75rem; margin-top:0.5rem;">
+                                    <input type="text" id="motherFirstName" class="form-control"
+                                        placeholder="First Name">
+                                    <input type="text" id="motherLastName" class="form-control" placeholder="Last Name">
+                                    <input type="email" id="motherEmail" class="form-control"
+                                        placeholder="Email (Optional)">
+                                </div>
+                            </div>
+
+                            <div class="form-group"
+                                style="background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <label style="font-weight:700; color:#1e293b;">Guardian (Optional)</label>
+                                <div
+                                    style="display:grid; grid-template-columns: 1fr 1fr auto; gap:1rem; margin-top:0.5rem;">
+                                    <input type="text" id="guardianName" class="form-control" placeholder="Full Name">
+                                    <input type="email" id="guardianEmail" class="form-control"
+                                        placeholder="Email (Optional)">
+                                    <select id="guardianGender" class="form-control" style="min-width: 100px;">
+                                        <option value="male">Mr.</option>
+                                        <option value="female">Mrs.</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Backend Logic Helper: "Family Name" -->
+                            <div class="form-group">
+                                <label>Family Name (System Internal)</label>
+                                <input type="text" id="onboardFamilyName" class="form-control"
+                                    placeholder="e.g. The Okonkwo Family" required>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary"
+                                style="width:100%; padding: 1rem; font-size: 1.1rem;">Generate Invites</button>
+                        </form>
                     </div>
+
+                    <!-- Right: Generated Invites Result -->
+                    <div>
+                        <div class="table-container" id="inviteResultsArea"
+                            style="padding: 1.5rem; background: #eef2ff; border: 1px solid #c7d2fe; display:none;">
+                            <h3 style="margin-top:0; color: #4338ca;"> Invites Generated</h3>
+                            <p style="font-size:0.9rem;">Copy these codes and send them to the parents.</p>
+                            <div id="inviteList" style="display:flex; flex-direction:column; gap:1rem;">
+                                <!-- Populated by JS -->
+                            </div>
+                            <button class="btn btn-secondary" onclick="resetOnboardForm()"
+                                style="margin-top:1rem; width:100%">Start New Onboarding</button>
+                        </div>
+
+                        <div class="table-container" style="margin-top: 2rem;">
+                            <h3 style="margin:0 0 1rem 0; font-size:1.1rem;">Pending Invites</h3>
+                            <div id="pendingInvitesList" style="max-height: 200px; overflow-y:auto;">
+                                <!-- Populated later -->
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -421,7 +407,8 @@
                             <input type="text" id="announcementInput" class="form-control"
                                 placeholder="e.g., Welcome to Student Pickup! (Leave empty to disable)">
                             <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:5px;">
-                                This message will scroll across the bottom of the Class Display. <strong>Clear text to
+                                This message will scroll across the bottom of the Class Display. <strong>Clear text
+                                    to
                                     hide the
                                     ticker.</strong>
                             </p>
@@ -475,7 +462,8 @@
                                         style="margin-left:15px; font-family:monospace; font-size:1.1rem; font-weight:bold;">
                                         #4f46e5</div>
                                 </div>
-                                <p style="margin-top:0.5rem; font-size:0.85rem; color:var(--text-secondary);">This color
+                                <p style="margin-top:0.5rem; font-size:0.85rem; color:var(--text-secondary);">This
+                                    color
                                     will be
                                     used for buttons, headers, and accents in the Parent App and Displays.</p>
                             </div>
@@ -486,7 +474,8 @@
                         <!-- School Location Section -->
                         <h3 class="mb-md" style="color:var(--primary);"> School Location</h3>
                         <p style="font-size:0.9rem; color:#666; margin-bottom: 1.5rem;">
-                            Set your school's coordinates for the parent geofencing feature. Parents must be within this
+                            Set your school's coordinates for the parent geofencing feature. Parents must be within
+                            this
                             radius
                             to sign out students.
                         </p>
@@ -523,38 +512,6 @@
                             coordinates.
                         </p>
 
-                        <hr style="border:0; border-top:1px solid var(--border); margin: 2rem 0;">
-
-                        <!-- Drop-Off Settings Section -->
-                        <h3 class="mb-md" style="color:var(--primary);">🚌 Drop-Off Settings</h3>
-                        <p style="font-size:0.9rem; color:#666; margin-bottom: 1.5rem;">
-                            Configure the school start time and grace period for late arrival tracking.
-                        </p>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; align-items: end;">
-                            <div class="form-group" style="margin:0;">
-                                <label class="form-label">School Start Time</label>
-                                <input type="time" id="dropoffStartTimeInput" class="form-control" value="08:00">
-                            </div>
-                            <div class="form-group" style="margin:0;">
-                                <label class="form-label">Grace Period (minutes)</label>
-                                <input type="number" id="dropoffGraceInput" class="form-control" min="0" max="60"
-                                    value="15" placeholder="15">
-                            </div>
-                            <div class="form-group" style="margin:0;">
-                                <label class="form-label">Enable Late Tracking</label>
-                                <select id="dropoffLateTrackingToggle" class="form-control">
-                                    <option value="true">Enabled</option>
-                                    <option value="false">Disabled</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <p style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.75rem;">
-                            <strong>Example:</strong> If start time is 8:00 AM with a 15-minute grace period,
-                            students arriving after 8:15 AM will be flagged as late.
-                        </p>
-
                         <div style="text-align:right;">
                             <button type="submit" id="saveStartSettingsBtn" class="btn btn-primary btn-xl">Save
                                 Changes</button>
@@ -564,235 +521,11 @@
             </div>
 
             <!-- Dynamic Classes Tab -->
-
-            <!-- Punctuality Dashboard Tab -->
-            <div id="punctualityTab" class="tab-content">
-                <div class="header">
-                    <h2>📊 Punctuality Dashboard</h2>
-                    <p style="color:var(--text-secondary);">Track student arrival times and lateness patterns.</p>
-                </div>
-
-                <!-- Date Selector -->
-                <div style="display:flex; gap:1rem; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap;">
-                    <div class="form-group" style="margin:0;">
-                        <label class="form-label">Date</label>
-                        <input type="date" id="punctualityDateInput" class="form-control">
-                    </div>
-                    <div class="form-group" style="margin:0;">
-                        <label class="form-label">Filter by Year</label>
-                        <select id="punctualityYearFilter" class="form-control">
-                            <option value="">All Years</option>
-                            <option value="7">Year 7</option>
-                            <option value="8">Year 8</option>
-                            <option value="9">Year 9</option>
-                            <option value="10">Year 10</option>
-                            <option value="11">Year 11</option>
-                            <option value="12">Year 12</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="margin:0;">
-                        <label class="form-label">Filter by Class</label>
-                        <select id="punctualityClassFilter" class="form-control">
-                            <option value="">All Classes</option>
-                        </select>
-                    </div>
-                    <div style="align-self:flex-end;">
-                        <button class="btn btn-primary" onclick="loadPunctualityDashboard()">Load</button>
-                    </div>
-                    <div style="align-self:flex-end; margin-left:auto;">
-                        <button class="btn btn-secondary" onclick="exportPunctualityCSV()">📥 Export CSV</button>
-                    </div>
-                </div>
-
-                <!-- Summary Cards -->
-                <div
-                    style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
-                    <div class="settings-card" style="text-align:center; padding:1.25rem;">
-                        <div style="font-size:2rem; font-weight:800; color:var(--primary);" id="puncTotalArrived">0
-                        </div>
-                        <div style="font-size:0.85rem; color:var(--text-secondary);">Total Arrived</div>
-                    </div>
-                    <div class="settings-card" style="text-align:center; padding:1.25rem;">
-                        <div style="font-size:2rem; font-weight:800; color:#16a34a;" id="puncOnTimePercent">0%</div>
-                        <div style="font-size:0.85rem; color:var(--text-secondary);">On Time</div>
-                    </div>
-                    <div class="settings-card" style="text-align:center; padding:1.25rem;">
-                        <div style="font-size:2rem; font-weight:800; color:#ef4444;" id="puncLatePercent">0%</div>
-                        <div style="font-size:0.85rem; color:var(--text-secondary);">Late</div>
-                    </div>
-                    <div class="settings-card" style="text-align:center; padding:1.25rem;">
-                        <div style="font-size:2rem; font-weight:800; color:#f59e0b;" id="puncLateCount">0</div>
-                        <div style="font-size:0.85rem; color:var(--text-secondary);">Late Students</div>
-                    </div>
-                </div>
-
-                <!-- Arrivals Table -->
-                <div class="settings-card" style="padding:0; overflow:hidden;">
-                    <div
-                        style="padding:1rem 1.25rem; background:#f8fafc; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-                        <h3 style="margin:0; font-size:1rem;">Arrival Log</h3>
-                        <span id="puncTableCount" style="font-size:0.85rem; color:var(--text-secondary);">0
-                            records</span>
-                    </div>
-                    <div style="max-height:500px; overflow-y:auto;">
-                        <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
-                            <thead>
-                                <tr style="background:#f1f5f9;">
-                                    <th
-                                        style="padding:0.6rem 0.75rem; text-align:left; font-weight:600; color:var(--text-secondary); font-size:0.8rem; text-transform:uppercase;">
-                                        Adm. No.</th>
-                                    <th
-                                        style="padding:0.6rem 0.75rem; text-align:left; font-weight:600; color:var(--text-secondary); font-size:0.8rem; text-transform:uppercase;">
-                                        Student Name</th>
-                                    <th
-                                        style="padding:0.6rem 0.75rem; text-align:left; font-weight:600; color:var(--text-secondary); font-size:0.8rem; text-transform:uppercase;">
-                                        Year / Class</th>
-                                    <th
-                                        style="padding:0.6rem 0.75rem; text-align:left; font-weight:600; color:var(--text-secondary); font-size:0.8rem; text-transform:uppercase;">
-                                        Arrival Time</th>
-                                    <th
-                                        style="padding:0.6rem 0.75rem; text-align:left; font-weight:600; color:var(--text-secondary); font-size:0.8rem; text-transform:uppercase;">
-                                        Method</th>
-                                    <th
-                                        style="padding:0.6rem 0.75rem; text-align:left; font-weight:600; color:var(--text-secondary); font-size:0.8rem; text-transform:uppercase;">
-                                        Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="punctualityTableBody">
-                                <tr>
-                                    <td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">
-                                        Select a date and click Load to view arrivals</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Chronic Lateness Section -->
-                <div class="settings-card" style="margin-top:1.5rem;">
-                    <h3 class="mb-md" style="color:#ef4444;">⚠️ Chronic Lateness (Last 7 Days)</h3>
-                    <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">Students who have
-                        been late 3 or more times in the past 7 days.</p>
-                    <div id="chronicLateList">
-                        <p style="color:var(--text-muted); text-align:center;">Load a date first to calculate chronic
-                            lateness</p>
-                    </div>
-                </div>
-            </div>
-            <!-- Buses Management Tab -->
-            <div id="busesTab" class="tab-content">
-                <div class="header">
-                    <h2>🚌 Bus Management</h2>
-                    <p style="color:var(--text-secondary);">Create and manage school buses, assign drivers, minders, and
-                        students.</p>
-                </div>
-
-                <div
-                    style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem;">
-                    <button class="btn btn-primary" onclick="openBusModal()">+ Add Bus</button>
-                    <span id="busCount" style="color:var(--text-secondary); font-size:0.9rem;">0 buses</span>
-                </div>
-
-                <!-- Bus List -->
-                <div id="busListContainer">
-                    <p style="text-align:center; color:var(--text-muted); padding:2rem;">Loading buses...</p>
-                </div>
-
-                <!-- Add/Edit Bus Modal -->
-                <div id="busModal" class="modal-overlay">
-                    <div class="modal-content" style="max-width:600px;">
-                        <div class="modal-header"
-                            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-                            <h3 id="busModalTitle" style="margin:0;">Add New Bus</h3>
-                            <button class="btn btn-secondary" onclick="closeBusModal()"
-                                style="padding:0.25rem 0.75rem;">×</button>
-                        </div>
-                        <form id="busForm">
-                            <input type="hidden" id="busEditId">
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-                                <div class="form-group" style="margin:0;">
-                                    <label class="form-label">Bus Name</label>
-                                    <input type="text" id="busNameInput" class="form-control" placeholder="e.g. Bus A"
-                                        required>
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label class="form-label">Plate Number</label>
-                                    <input type="text" id="busPlateInput" class="form-control"
-                                        placeholder="e.g. ABC-123">
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label class="form-label">Capacity</label>
-                                    <input type="number" id="busCapacityInput" class="form-control" min="1" max="100"
-                                        value="45">
-                                </div>
-                            </div>
-
-                            <hr style="border:0; border-top:1px solid var(--border); margin:1.5rem 0;">
-
-                            <h4 style="margin-bottom:0.75rem; color:var(--primary);">Bus Staff Account</h4>
-                            <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">Create a
-                                login for the driver or minder. They'll use this to access the bus page.</p>
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-                                <div class="form-group" style="margin:0;">
-                                    <label class="form-label">Driver Name</label>
-                                    <input type="text" id="busDriverNameInput" class="form-control"
-                                        placeholder="Driver's full name">
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label class="form-label">Minder Name</label>
-                                    <input type="text" id="busMindernameInput" class="form-control"
-                                        placeholder="Minder's full name">
-                                </div>
-                            </div>
-                            <div id="busStaffAccountSection" style="margin-top:1rem;">
-                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-                                    <div class="form-group" style="margin:0;">
-                                        <label class="form-label">Staff Email (for login)</label>
-                                        <input type="email" id="busStaffEmailInput" class="form-control"
-                                            placeholder="bus-a@school.com">
-                                    </div>
-                                    <div class="form-group" style="margin:0;">
-                                        <label class="form-label">Password</label>
-                                        <input type="text" id="busStaffPasswordInput" class="form-control"
-                                            placeholder="min 6 chars" minlength="6">
-                                    </div>
-                                </div>
-                                <p style="font-size:0.8rem; color:#94a3b8; margin-top:0.5rem;">Leave email blank if bus
-                                    staff already has an account.</p>
-                            </div>
-
-                            <hr style="border:0; border-top:1px solid var(--border); margin:1.5rem 0;">
-
-                            <h4 style="margin-bottom:0.75rem; color:var(--primary);">Assign Students</h4>
-                            <input type="text" id="busStudentSearch" class="form-control"
-                                placeholder="Search students..." onkeyup="filterBusStudents()"
-                                style="margin-bottom:0.75rem;">
-                            <div id="busStudentList"
-                                style="max-height:250px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:0.5rem;">
-                                <p style="text-align:center; color:var(--text-muted);">Loading students...</p>
-                            </div>
-                            <div style="margin-top:0.5rem; font-size:0.85rem; color:var(--text-secondary);">
-                                <span id="busSelectedCount">0</span> students selected
-                            </div>
-
-                            <div id="busFormError"
-                                style="display:none; background:#fee2e2; color:#991b1b; padding:0.75rem; border-radius:8px; margin-top:1rem;">
-                            </div>
-
-                            <div style="display:flex; gap:1rem; justify-content:flex-end; margin-top:1.5rem;">
-                                <button type="button" class="btn btn-secondary"
-                                    onclick="closeBusModal()">Cancel</button>
-                                <button type="submit" class="btn btn-primary" id="saveBusBtn">Save Bus</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
             <div id="classesTab" class="tab-content">
                 <div class="header">
                     <h2> Manage Classes</h2>
-                    <p style="color:var(--text-secondary);">Customize the class list for your school (e.g., Pine, Gold,
+                    <p style="color:var(--text-secondary);">Customize the class list for your school (e.g.,
+                        Pine, Gold,
                         Diamond).</p>
                 </div>
 
@@ -819,7 +552,8 @@
                                 <small style="color:var(--text-secondary)">Case-sensitive (e.g. "Pine" vs
                                     "pine")</small>
                             </div>
-                            <button type="submit" class="btn btn-primary" style="width:100%;">+ Add Class</button>
+                            <button type="submit" class="btn btn-primary" style="width:100%;">+ Add
+                                Class</button>
                         </form>
                     </div>
 
@@ -842,270 +576,94 @@
                                 </tbody>
                             </table>
                         </div>
+                        Panels (IFP).</p>
                     </div>
-                </div>
-            </div>
 
-            <!-- Registered Users Tab -->
-            <div id="usersTab" class="tab-content">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div style="flex-grow:1;">
-                        <h2 style="margin-top:0;">Registered Users</h2>
-                        <p style="color:#666; margin-bottom:1rem;">Manage active accounts and reception staff.</p>
-                    </div>
-                    <button class="btn btn-primary" onclick="openCreateStaffModal()"
-                        style="background: var(--secondary); color: white;">
-                        + Create Staff Account
-                    </button>
-                </div>
+                    <div class="responsive-grid">
+                        <div class="settings-card">
+                            <h3 class="mb-md">Generate New Link</h3>
 
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Email</th>
-                                <th>Role</th>
-                                <th>Family ID</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="registeredUsersTableBody">
-                            <tr>
-                                <td colspan="4" class="empty-table">Loading users...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- History Tab -->
-            <div id="historyTab" class="tab-content">
-                <div class="filter-bar" style="flex-wrap: wrap !important;">
-                    <label style="display: flex; align-items: center; gap: 0.5rem;">
-                        From: <input type="date" id="historyStartDate" class="form-control" style="width: auto;">
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 0.5rem;">
-                        To: <input type="date" id="historyEndDate" class="form-control" style="width: auto;">
-                    </label>
-                    <button class="btn btn-success" onclick="applyHistoryFilter()">🔍 Apply</button>
-                    <button class="btn btn-secondary" onclick="setHistoryPreset('today')">Today</button>
-                    <button class="btn btn-secondary" onclick="setHistoryPreset('week')">This Week</button>
-                    <button class="btn btn-secondary" onclick="setHistoryPreset('month')">This Month</button>
-                    <button class="btn btn-success" onclick="downloadHistory()">📥 Download CSV</button>
-                </div>
-                <div class="table-container" style="overflow-x: auto; width: 100%;">
-                    <table style="min-width: 900px; width: 100%;">
-                        <thead>
-                            <tr>
-                                <th>Student Name</th>
-                                <th>Year</th>
-                                <th>Class</th>
-                                <th>Picked Up By</th>
-                                <th>Signed Out</th>
-                                <th>Acknowledged</th>
-                                <th>Wait Duration</th>
-                            </tr>
-                        </thead>
-                        <tbody id="historyTableBody">
-                            <tr>
-                                <td colspan="7" class="empty-table">Loading history...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Session Management Tab -->
-            <div id="sessionTab" class="tab-content">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
-
-                    <!-- Current Session Info -->
-                    <div class="table-container"
-                        style="padding: 1.5rem; background: linear-gradient(135deg, #1e1b4b, #312e81); color: white;">
-                        <h2 style="margin: 0 0 1rem 0; color: #c7d2fe;"> Current Session</h2>
-                        <div id="currentSessionDisplay"
-                            style="font-size: 2.5rem; font-weight: 700; color: #a5b4fc; margin-bottom: 1rem;">
-                            Loading...
-                        </div>
-                        <div id="sessionStats" style="font-size: 0.95rem; opacity: 0.9; margin-bottom: 1rem;">
-                            <!-- Populated by JS -->
-                        </div>
-
-                        <!-- Set Current Session -->
-                        <div style="border-top: 1px solid #4c1d95; padding-top: 1rem; margin-top: 1rem;">
-                            <label
-                                style="font-size: 0.85rem; color: #c7d2fe; display: block; margin-bottom: 0.5rem;">Set
-                                Current Session:</label>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <input type="text" id="setCurrentSessionInput" class="form-control"
-                                    placeholder="2025/2026" style="flex: 1; padding: 0.5rem; font-weight: 600;">
-                                <button class="btn btn-sm" onclick="saveCurrentSession()"
-                                    style="background: #a5b4fc; color: #1e1b4b; font-weight: 600; padding: 0.5rem 1rem;">
-                                    Save
-                                </button>
+                            <div class="form-group mb-md">
+                                <label class="form-label">Year Group</label>
+                                <select id="displayYear" class="form-control">
+                                    <option value="7">Year 7</option>
+                                    <option value="8">Year 8</option>
+                                    <option value="9">Year 9</option>
+                                    <option value="10">Year 10</option>
+                                    <option value="11">Year 11</option>
+                                    <option value="12">Year 12</option>
+                                </select>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- Session Transition Tool -->
-                    <div class="table-container" style="padding: 1.5rem;">
-                        <h2 style="margin: 0 0 1rem 0;"> Start New Session</h2>
-                        <p style="color: #64748b; margin-bottom: 1rem;">Promote all students to the next year and
-                            archive
-                            graduates.</p>
+                            <div class="form-group mb-lg">
+                                <label class="form-label">Class Name</label>
+                                <input type="text" id="displayClass" class="form-control"
+                                    placeholder="e.g. Blue, Red, Green">
+                                <small style="color:var(--text-secondary)">Case-insensitive (e.g. "blue"
+                                    works)</small>
+                            </div>
 
-                        <div class="form-group">
-                            <label class="form-label">New Session Year</label>
-                            <input type="text" id="newSessionYear" class="form-control" placeholder="e.g., 2026/2027"
-                                style="font-size: 1.25rem; font-weight: 600;">
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Final Year (students to graduate)</label>
-                            <select id="finalYearSelect" class="form-control">
-                                <option value="12">Year 12</option>
-                                <option value="11">Year 11</option>
-                                <option value="13">Year 13</option>
-                            </select>
-                        </div>
-
-                        <div id="transitionPreview"
-                            style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin: 1rem 0; display: none;">
-                            <h4 style="margin: 0 0 0.75rem 0; color: #1e40af;"> Transition Preview</h4>
-                            <div id="transitionBreakdown"></div>
-                        </div>
-
-                        <button class="btn btn-primary" onclick="previewSessionTransition()"
-                            style="width: 100%; margin-bottom: 0.5rem;">
-                            Preview Changes
-                        </button>
-                        <button id="confirmTransitionBtn" class="btn btn-success" onclick="executeSessionTransition()"
-                            style="width: 100%; display: none; background: linear-gradient(135deg, #059669, #10b981);">
-                            Confirm & Start New Session
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Archived Students Section -->
-                <div class="table-container" style="margin-top: 2rem;">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <h2 style="margin: 0;"> Archived Students (Graduates)</h2>
-                        <button class="btn btn-secondary" onclick="loadArchivedStudents()"
-                            style="background: #475569; color: white;"> Refresh</button>
-                    </div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Last Year</th>
-                                <th>Last Class</th>
-                                <th>Graduated Session</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="archivedStudentsBody">
-                            <tr>
-                                <td colspan="5" class="empty-table">No archived students yet.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Class Displays Tab -->
-            <div id="displaysTab" class="tab-content">
-                <h2 style="margin-top:0;">Classroom Display Links</h2>
-                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Permanent display links for your
-                    classroom IFPs — no login required. Just bookmark on the device.</p>
-
-                <div id="displayLinksContainer"
-                    style="display: flex; flex-direction: column; gap: 0.75rem; max-width: 700px;">
-                    <div class="empty-state" style="padding: 2rem; text-align:center; color:#94a3b8;">Loading class
-                        display links...</div>
-                </div>
-
-                <!-- Celebration Mode -->
-                <div style="margin-top: 2.5rem; max-width: 700px;">
-                    <h2 style="margin-top:0; display: flex; align-items: center; gap: 0.5rem;">🎉 Celebration Mode</h2>
-                    <p style="color: var(--text-secondary); margin-bottom: 1.25rem;">Rain confetti across all classroom
-                        displays to celebrate a winning house, event, or achievement.</p>
-
-                    <div id="celebrationControls"
-                        style="background: var(--bg-card); border: 2px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem;">
-
-                        <!-- Toggle -->
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-                            <label style="font-weight: 700; font-size: 1rem;">Enable Celebration</label>
-                            <label
-                                style="position: relative; display: inline-block; width: 52px; height: 28px; cursor: pointer;">
-                                <input type="checkbox" id="celebrationActive" onchange="toggleCelebrationPreview()"
-                                    style="opacity:0; width:0; height:0;">
-                                <span
-                                    style="position:absolute; inset:0; background:#475569; border-radius:28px; transition:0.3s;"></span>
-                                <span
-                                    style="position:absolute; top:2px; left:2px; width:24px; height:24px; background:white; border-radius:50%; transition:0.3s;"
-                                    id="celebToggleKnob"></span>
-                            </label>
-                        </div>
-
-                        <!-- Message -->
-                        <div class="form-group mb-md">
-                            <label class="form-label">Celebration Message</label>
-                            <input type="text" id="celebrationMessage" class="form-control"
-                                placeholder="e.g. 🏆 CRANE HOUSE" value="🏆 CRANE HOUSE"
-                                style="font-size: 1.1rem; font-weight: 700;">
-                            <small style="color:var(--text-secondary)">This text floats on screen during each confetti
-                                burst</small>
-                        </div>
-
-                        <!-- Color -->
-                        <div class="form-group mb-md">
-                            <label class="form-label">House Color</label>
-                            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                <input type="color" id="celebrationColor" value="#ef4444"
-                                    style="width: 50px; height: 40px; border: none; border-radius: 8px; cursor: pointer;">
-                                <span style="color: var(--text-secondary);">Red = #ef4444</span>
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                                <button class="btn btn-primary" onclick="generateDisplayLink()" id="genLinkBtn">
+                                    Generate
+                                    Magic
+                                    Link</button>
+                                <button class="btn btn-success" onclick="generatePairingCode()" id="genPairingBtn"
+                                    style="background: linear-gradient(135deg, #8b5cf6, #6366f1);"> Generate
+                                    Pairing
+                                    Code</button>
+                            </div>
+                            <div id="genStatus" style="margin-top: 10px; font-weight: bold; color: var(--primary);">
                             </div>
                         </div>
 
-                        <!-- Interval -->
-                        <div class="form-group mb-md">
-                            <label class="form-label">Confetti Interval (seconds)</label>
-                            <input type="number" id="celebrationInterval" class="form-control" value="45" min="15"
-                                max="300" style="max-width: 120px;">
-                            <small style="color:var(--text-secondary)">How often confetti rains (15-300s). Default:
-                                45s</small>
+                        <!-- Pairing Code Result Side Panel (Initially Hidden) -->
+                        <div id="pairingCodeResult" class="settings-card"
+                            style="display:none; background: linear-gradient(135deg, #1e1b4b, #312e81); border:none; color:white; height: fit-content;">
+                            <h4 style="margin-top:0; color: #c7d2fe;"> Pairing Code Generated</h4>
+                            <p style="color: #a5b4fc; margin-bottom: 1rem;">Enter this code on the IFP at
+                                <strong style="color: white;">/pair</strong>
+                            </p>
+
+                            <div id="pairingCodeDisplay"
+                                style="font-size: 3rem; font-weight: 700; letter-spacing: 0.5rem; color: white; background: rgba(255,255,255,0.1); padding: 1rem 2rem; border-radius: 12px; display: block; text-align:center; font-family: monospace; margin-bottom: 1rem;">
+                                ------
+                            </div>
+
+                            <p id="pairingCodeTimer"
+                                style="margin-top: 1rem; color: #fbbf24; font-weight: 600; text-align:center;">
+                                ° Valid for 10:00
+                            </p>
+                            <p style="font-size: 0.85rem; color: #94a3b8; margin-top: 1rem; text-align: center;">
+                                Class: <span id="pairingCodeClass" style="color: #a5b4fc; font-weight: 600;">-</span>
+                            </p>
                         </div>
 
-                        <!-- Confetti Count -->
-                        <div class="form-group mb-md">
-                            <label class="form-label">Confetti Pieces Per Burst</label>
-                            <input type="number" id="celebrationCount" class="form-control" value="500" min="50"
-                                max="1000" step="50" style="max-width: 120px;">
-                            <small style="color:var(--text-secondary)">Number of confetti pieces (50-1000). Default:
-                                500</small>
-                        </div>
+                        <!-- Magic Link Result Side Panel (Initially Hidden) -->
+                        <div id="displayLinkResult" class="settings-card"
+                            style="display:none; background: #e0f2fe; border: 1px solid #bae6fd; height: fit-content;">
+                            <h4 style="margin-top:0; color: #0284c7;"> Magic Link Created!</h4>
+                            <p style="margin-bottom: 0.5rem;" id="linkDesc">Open this link on the classroom
+                                Smart Board:</p>
 
-                        <!-- Expiry -->
-                        <div class="form-group mb-lg">
-                            <label class="form-label">Auto-Stop Date (optional)</label>
-                            <input type="date" id="celebrationExpiry" class="form-control" style="max-width: 200px;">
-                            <small style="color:var(--text-secondary)">Leave blank to keep it running until you turn it
-                                off</small>
-                        </div>
+                            <div style="display:flex; gap:10px; margin-bottom: 1rem;">
+                                <input type="text" id="magicLinkUrl" class="form-control" readonly
+                                    style="font-family: monospace; font-size: 0.9rem;" value="...">
+                                <button class="btn btn-secondary" onclick="copyMagicLink()">Copy</button>
+                            </div>
 
-                        <!-- Save Button -->
-                        <button class="btn btn-primary" onclick="saveCelebration()"
-                            style="background: linear-gradient(135deg, #ef4444, #dc2626); border: none; padding: 0.75rem 2rem; font-size: 1rem; font-weight: 700;">
-                            🎊 Save Celebration Settings
-                        </button>
-                        <span id="celebSaveStatus" style="margin-left: 1rem; font-weight: 600;"></span>
+                            <p style="font-size: 0.85rem; color: #475569;">
+                                <strong>Security Note:</strong> This link allows instant login. Treat it
+                                like a password.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
     </div>
+    <!-- End Admin Container -->
+    </div>
+
     <div id="studentModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -1115,14 +673,6 @@
 
             <form id="studentForm">
                 <input type="hidden" id="studentId">
-
-                <div class="form-group">
-                    <label class="form-label" for="studentAdmNo">Book Rental No.</label>
-                    <input type="text" id="studentAdmNo" class="form-control" placeholder="e.g. A001, F063"
-                        maxlength="6" pattern="[A-Za-z0-9]{4,6}">
-                    <small style="color:var(--text-muted)">4-6 alphanumeric characters (optional during
-                        registration)</small>
-                </div>
 
                 <div class="form-group">
                     <label class="form-label" for="studentName">Student Name</label>
@@ -1183,12 +733,15 @@
                     <label class="form-label">Password</label>
                     <input type="text" id="staffPassword" class="form-control" placeholder="Min 6 characters" required
                         minlength="6">
-                    <small style="color:var(--text-muted)">You will share this password with your staff.</small>
+                    <small style="color:var(--text-muted)">You will share this password with your
+                        staff.</small>
                 </div>
                 <p style="color:var(--text-secondary); font-size:0.9rem; margin-bottom:1rem;">
-                    This will create a <strong>Teacher</strong> account with access to the Reception dashboard.
+                    This will create a <strong>Teacher</strong> account with access to the Reception
+                    dashboard.
                 </p>
-                <div id="staffCreateStatus" style="margin-bottom:1rem; color: var(--error); display:none;"></div>
+                <div id="staffCreateStatus" style="margin-bottom:1rem; color: var(--error); display:none;">
+                </div>
                 <button type="submit" class="btn btn-primary w-full">Create Account</button>
             </form>
         </div>
@@ -1217,15 +770,18 @@ Sophia Davis
                     </small>
                 </div>
 
-                <div style="text-align: center; margin: 1rem 0; font-weight: bold; color: #cbd5e1;">- OR -</div>
+                <div style="text-align: center; margin: 1rem 0; font-weight: bold; color: #cbd5e1;">- OR -
+                </div>
 
                 <div class="form-group"
                     style="background: #e0f2fe; padding: 1rem; border-radius: 8px; border: 1px dashed #0284c7;">
-                    <label class="form-label" for="csvFileInput" style="color: #0369a1;"> Upload CSV File</label>
+                    <label class="form-label" for="csvFileInput" style="color: #0369a1;"> Upload CSV
+                        File</label>
                     <input type="file" id="csvFileInput" class="form-control" accept=".csv" style="background: white;">
                     <small style="display:block; margin-top:0.5rem; color:#0c4a6e;">
                         Format: <code>Student Name, Year, Class</code> (Headers optional)<br>
-                        <em>If Year/Class are missing in CSV, the dropdowns below will be used as defaults.</em>
+                        <em>If Year/Class are missing in CSV, the dropdowns below will be used as
+                            defaults.</em>
                     </small>
                 </div>
 
@@ -1265,7 +821,6 @@ Sophia Davis
         let students = [];
         let history = [];
         let editingStudentId = null;
-        let schoolClasses = [];
 
         // --- AUTH & INIT LOGIC ---
         auth.onAuthStateChanged(async (user) => {
@@ -1287,37 +842,6 @@ Sophia Davis
 
                         // Store SchoolID
                         sessionStorage.setItem('schoolId', userData.schoolId || '');
-
-                        // --- FIX: Fetch School Name for Email Templates ---
-                        if (userData.schoolId) {
-                            try {
-                                const sDoc = await db.collection('schools').doc(userData.schoolId).get();
-                                if (sDoc.exists) {
-                                    const schoolData = sDoc.data();
-
-                                    // Check if school is suspended
-                                    if (schoolData.status === 'suspended') {
-                                        alert('⚠️ Your school account has been suspended. Please contact support for assistance.');
-                                        await auth.signOut();
-                                        window.location.href = 'login.html';
-                                        return;
-                                    }
-
-                                    if (schoolData.name) {
-                                        sessionStorage.setItem('schoolName', schoolData.name);
-                                        document.title = `${schoolData.name} - Admin Panel`;
-                                    }
-
-                                    // Apply Branding (Colors & Logo)
-                                    if (typeof window.applyBranding === 'function') {
-                                        window.applyBranding(schoolData);
-                                    }
-                                }
-                            } catch (e) {
-                                console.error('Error fetching school info:', e);
-                            }
-                        }
-                        // --------------------------------------------------
 
                         // Update UI
                         document.querySelectorAll('#headerName').forEach(el => el.textContent = userData.displayName || user.email);
@@ -1410,7 +934,7 @@ Sophia Davis
             } else if (tabName === 'users') {
                 loadRegisteredUsers();
             } else if (tabName === 'displays') {
-                loadClassDisplayLinks();
+                // No special load needed
             } else if (tabName === 'session') {
                 loadSessionInfo();
                 loadArchivedStudents();
@@ -1420,10 +944,6 @@ Sophia Davis
                 loadClasses();
             } else if (tabName === 'announcements') {
                 loadAnnouncementsTab();
-            } else if (tabName === 'punctuality') {
-                loadPunctualityDashboard();
-            } else if (tabName === 'buses') {
-                loadBuses();
             }
         }
         window.switchTab = switchTab; // Expose to global scope for sidebar
@@ -1456,7 +976,7 @@ Sophia Davis
                 filterStudents();
             } catch (error) {
                 console.error('Error loading students:', error);
-                document.getElementById('studentsTableBody').innerHTML = '<tr><td colspan="7" class="error-message">Error loading students</td></tr>';
+                document.getElementById('studentsTableBody').innerHTML = '<tr><td colspan="5" class="error-message">Error loading students</td></tr>';
             }
         }
 
@@ -1511,15 +1031,14 @@ Sophia Davis
 
         // Filter students
         function filterStudents() {
-            const searchTerm = document.getElementById('studentSearch').value.toLowerCase();
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const filterYear = document.getElementById('filterYear').value;
             const filterClass = document.getElementById('filterClass').value;
 
             let filtered = students.filter(student => {
-                const matchesSearch = student.name.toLowerCase().includes(searchTerm) ||
-                    (student.bookRentalNumber && student.bookRentalNumber.includes(searchTerm));
+                const matchesSearch = student.name.toLowerCase().includes(searchTerm);
                 const matchesYear = !filterYear || student.year == filterYear;
-                const matchesClass = !filterClass || (student.class && student.class.toLowerCase() === filterClass.toLowerCase());
+                const matchesClass = !filterClass || student.class === filterClass;
                 return matchesSearch && matchesYear && matchesClass;
             });
 
@@ -1531,7 +1050,7 @@ Sophia Davis
             const tbody = document.getElementById('studentsTableBody');
 
             if (studentsToRender.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-table">No students found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-table">No students found</td></tr>';
                 return;
             }
 
@@ -1576,7 +1095,6 @@ Sophia Davis
                 return `
         <tr>
           <td><input type="checkbox" class="student-checkbox" data-id="${student.id}" onchange="updateSelectedCount()"></td>
-          <td><span style="font-family:monospace; font-weight:600; color:#6366f1; font-size:0.9rem;">${student.bookRentalNumber ? escapeHtml(student.bookRentalNumber) : '<span style="color:#cbd5e1;">—</span>'}</span></td>
           <td><strong>${escapeHtml(student.name)}</strong></td>
           <td>Year ${student.year}</td>
           <td>${student.class.charAt(0).toUpperCase() + student.class.slice(1)}</td>
@@ -1847,8 +1365,7 @@ Sophia Davis
                         class: className,
                         family_id: null,
                         family_name: null,
-                        bookRentalNumber: null,
-                        schoolId: schoolId
+                        schoolId: schoolId // Assign to current school
                     });
                 });
 
@@ -1870,7 +1387,6 @@ Sophia Davis
 
             editingStudentId = id;
             document.getElementById('modalTitle').textContent = 'Edit Student';
-            document.getElementById('studentAdmNo').value = student.bookRentalNumber || '';
             document.getElementById('studentName').value = student.name;
             document.getElementById('studentYear').value = student.year;
             document.getElementById('studentClass').value = student.class;
@@ -1888,36 +1404,11 @@ Sophia Davis
         document.getElementById('studentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const rawAdmNo = document.getElementById('studentAdmNo').value.trim();
-            // Force uppercase for Book Rental No
-            const bookRentalNumber = rawAdmNo ? rawAdmNo.toUpperCase() : '';
-
-            // Validate book rental number if provided
-            if (bookRentalNumber && !/^[A-Z0-9]{4,6}$/.test(bookRentalNumber)) {
-                alert('Book rental number must be 4 to 6 alphanumeric characters (e.g. A001).');
-                return;
-            }
-
-            // Check uniqueness within school
-            if (bookRentalNumber) {
-                const schoolId = sessionStorage.getItem('schoolId');
-                const existingSnap = await db.collection('students')
-                    .where('schoolId', '==', schoolId)
-                    .where('bookRentalNumber', '==', bookRentalNumber)
-                    .get();
-                const duplicates = existingSnap.docs.filter(d => d.id !== editingStudentId);
-                if (duplicates.length > 0) {
-                    alert(`Book rental number ${bookRentalNumber} is already assigned to ${duplicates[0].data().name}.`);
-                    return;
-                }
-            }
-
             const studentData = {
                 name: document.getElementById('studentName').value,
                 year: parseInt(document.getElementById('studentYear').value),
                 class: document.getElementById('studentClass').value,
-                schoolId: sessionStorage.getItem('schoolId'),
-                bookRentalNumber: bookRentalNumber || null
+                schoolId: sessionStorage.getItem('schoolId') // Assign to current school
             };
 
             try {
@@ -2497,8 +1988,6 @@ Sophia Davis
                 ? inviteData.student_snapshots.map(s => s.name).join(', ')
                 : 'your children';
 
-            const schoolId = sessionStorage.getItem('schoolId');
-
             const inviteLink = window.location.origin + '/parent-signup.html?code=' + inviteData.code;
 
             // Professional HTML Email Template
@@ -2514,8 +2003,8 @@ Sophia Davis
             <!-- Header -->
             <tr>
                 <td style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 30px; text-align: center;">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">\${schoolName}</h1>
-                    <p style="color: #e0e7ff; margin: 10px 0 0 0; font-size: 14px;">via SurePickup System</p>
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;"> SurePickup</h1>
+                    <p style="color: #e0e7ff; margin: 10px 0 0 0; font-size: 14px;">Safe & Secure Student Pickup System</p>
                 </td>
             </tr>
             
@@ -2525,7 +2014,7 @@ Sophia Davis
                     <h2 style="color: #1e293b; margin: 0 0 20px 0; font-size: 22px;">Hello ${inviteData.parent_name}!</h2>
                     
                     <p style="color: #475569; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
-                        You've been invited by <strong>\${schoolName}</strong> to join <strong>SurePickup</strong> as a <strong>${inviteData.role}</strong> 
+                        You've been invited by <strong>${document.title.split(' - ')[0] || 'your school'}</strong> to join <strong>SurePickup</strong> as a <strong>${inviteData.role}</strong> 
                         for the ${inviteData.family_name}.
                     </p>
 
@@ -2582,7 +2071,6 @@ Sophia Davis
                     to: inviteData.parent_email,
                     subject: ` You're Invited to SurePickup - ${inviteData.family_name}`,
                     html: htmlBody,
-                    schoolId: schoolId,
                     parentName: inviteData.parent_name,
                     familyName: inviteData.family_name,
                     inviteCode: inviteData.code,
@@ -3101,7 +2589,7 @@ Sophia Davis
         }
 
         // Event listeners
-        document.getElementById('studentSearch').addEventListener('input', filterStudents);
+        document.getElementById('searchInput').addEventListener('input', filterStudents);
         document.getElementById('filterYear').addEventListener('change', filterStudents);
         document.getElementById('filterClass').addEventListener('change', filterStudents);
 
@@ -3158,8 +2646,8 @@ Sophia Davis
                     let line = lines[i].trim();
                     if (!line) continue;
 
-                    // Skip header if present (heuristic: check if first column is "name" or "admission" case-insensitive)
-                    if (i === 0 && (line.toLowerCase().startsWith('name') || line.toLowerCase().startsWith('admission'))) continue;
+                    // Skip header if present (heuristic: check if first column is "name" case-insensitive)
+                    if (i === 0 && line.toLowerCase().startsWith('name')) continue;
 
                     // Parse CSV line (simple split by comma)
                     const parts = line.split(',');
@@ -3189,18 +2677,10 @@ Sophia Davis
                             continue;
                         }
 
-                        // Parse Book Rental No. (4th col, optional)
-                        let bookRentalNo = '';
-                        if (parts[3] && parts[3].trim()) {
-                            bookRentalNo = parts[3].trim().toUpperCase();
-                            if (!/^[A-Z0-9]{4,6}$/.test(bookRentalNo)) bookRentalNo = ''; // Invalid, skip
-                        }
-
                         students.push({
                             name: name,
                             year: parseInt(year),
-                            class: className,
-                            bookRentalNumber: bookRentalNo || null
+                            class: className
                         });
                     }
                 }
@@ -3243,8 +2723,7 @@ Sophia Davis
                             class: s.class,
                             family_id: null,
                             family_name: null,
-                            bookRentalNumber: s.bookRentalNumber || null,
-                            schoolId: sessionStorage.getItem('schoolId')
+                            schoolId: sessionStorage.getItem('schoolId') // Assign to current school
                         });
                         countInBatch++;
 
@@ -3283,13 +2762,12 @@ Sophia Davis
             // My implementation of filterStudents() updates the DOM but doesn't store the filtered list globally.
             // Let's re-run the filter logic to get the list to export.
 
-            const searchTerm = document.getElementById('studentSearch').value.toLowerCase();
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const filterYear = document.getElementById('filterYear').value;
             const filterClass = document.getElementById('filterClass').value;
 
             const listToExport = students.filter(student => {
-                const matchesSearch = student.name.toLowerCase().includes(searchTerm) ||
-                    (student.bookRentalNumber && student.bookRentalNumber.includes(searchTerm));
+                const matchesSearch = student.name.toLowerCase().includes(searchTerm);
                 const matchesYear = !filterYear || student.year == filterYear;
                 const matchesClass = !filterClass || student.class === filterClass;
                 return matchesSearch && matchesYear && matchesClass;
@@ -3301,15 +2779,14 @@ Sophia Davis
             }
 
             // CSV Header
-            const headers = ['Book Rental No.', 'Name', 'Year', 'Class', 'Family'];
+            const headers = ['Name', 'Year', 'Class', 'Family'];
 
             // CSV Rows
             const rows = listToExport.map(s => {
                 // Handle commas in names by quoting
-                const safeAdmNo = s.bookRentalNumber || '';
                 const safeName = `"${s.name.replace(/"/g, '""')}"`;
                 const safeFamily = s.family_name ? `"${s.family_name.replace(/"/g, '""')}"` : '';
-                return [safeAdmNo, safeName, s.year, s.class, safeFamily].join(',');
+                return [safeName, s.year, s.class, safeFamily].join(',');
             });
 
             const csvContent = [headers.join(','), ...rows].join('\n');
@@ -3942,6 +3419,7 @@ Sophia Davis
         // ===========================================
         // DYNAMIC CLASS MANAGEMENT
         // ===========================================
+        let schoolClasses = [];
 
         async function loadClasses() {
             const schoolId = sessionStorage.getItem('schoolId');
@@ -4149,13 +3627,6 @@ Sophia Davis
                         updateData.geofenceRadius = radius;
                     }
 
-                    // 4. Save Drop-Off Settings
-                    updateData.dropOffSettings = {
-                        startTime: document.getElementById('dropoffStartTimeInput').value || '08:00',
-                        gracePeriodMinutes: parseInt(document.getElementById('dropoffGraceInput').value) || 15,
-                        lateTrackingEnabled: document.getElementById('dropoffLateTrackingToggle').value === 'true'
-                    };
-
                     await db.collection('schools').doc(schoolId).update(updateData);
 
                     alert("Settings saved successfully! Changes will appear on Displays and Parent App.");
@@ -4192,10 +3663,6 @@ Sophia Davis
                 if (doc.exists) {
                     const data = doc.data();
                     document.getElementById('schoolNameInput').value = data.name || '';
-                    if (data.name) {
-                        sessionStorage.setItem('schoolName', data.name);
-                        document.title = `${data.name} - Admin Panel`;
-                    }
                     document.getElementById('announcementInput').value = data.announcement || ''; // Load Announcement
                     document.getElementById('colorInput').value = (data.branding && data.branding.primaryColor) || data.brandColor || '#4f46e5';
                     updateColorPreview(document.getElementById('colorInput').value);
@@ -4207,13 +3674,6 @@ Sophia Davis
                     }
                     if (data.geofenceRadius) {
                         document.getElementById('geofenceRadiusInput').value = data.geofenceRadius;
-                    }
-
-                    // Drop-Off Settings
-                    if (data.dropOffSettings) {
-                        document.getElementById('dropoffStartTimeInput').value = data.dropOffSettings.startTime || '08:00';
-                        document.getElementById('dropoffGraceInput').value = data.dropOffSettings.gracePeriodMinutes ?? 15;
-                        document.getElementById('dropoffLateTrackingToggle').value = data.dropOffSettings.lateTrackingEnabled !== false ? 'true' : 'false';
                     }
 
                     // Logo
@@ -4253,167 +3713,6 @@ Sophia Davis
                     btn.disabled = false;
                 }
             );
-        }
-
-        // ===========================================
-        // CLASS DISPLAY LINKS (Public, No-Auth)
-        // ===========================================
-        async function loadClassDisplayLinks() {
-            const container = document.getElementById('displayLinksContainer');
-            if (!container) return;
-
-            const schoolId = sessionStorage.getItem('schoolId');
-            if (!schoolId) {
-                container.innerHTML = '<div class="empty-state" style="padding:2rem;">No school context found.</div>';
-                return;
-            }
-
-            // Ensure classes are loaded
-            if (schoolClasses.length === 0) await loadClasses();
-
-            if (schoolClasses.length === 0) {
-                container.innerHTML = '<div class="empty-state" style="padding:2rem; text-align:center;"><p style="color:#94a3b8; font-size:1rem;">No classes found. Go to the <strong>Classes</strong> tab to create your class structure first.</p></div>';
-                return;
-            }
-
-            // Sort classes by year then name
-            const sorted = [...schoolClasses].sort((a, b) => {
-                const yearDiff = parseInt(a.year) - parseInt(b.year);
-                return yearDiff !== 0 ? yearDiff : a.name.localeCompare(b.name);
-            });
-
-            const baseUrl = window.location.origin;
-
-            container.innerHTML = sorted.map(cls => {
-                const displayUrl = `${baseUrl}/display/${schoolId}/${cls.year}/${encodeURIComponent(cls.name)}`;
-                return `
-                    <div style="background: white; border: 1px solid #e2e8f0; border-left: 4px solid #6366f1; border-radius: 8px; padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="font-weight: 700; font-size: 1rem; color: #1e293b; margin-bottom: 0.25rem;">Year ${cls.year} ${escapeHtml(cls.name)}</div>
-                            <div style="font-size: 0.8rem; color: #94a3b8; word-break: break-all; font-family: monospace;">${escapeHtml(displayUrl)}</div>
-                        </div>
-                        <button onclick="copyDisplayLink(this, '${displayUrl.replace(/'/g, "\\'")}')"
-                            style="flex-shrink:0; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 8px; padding: 0.5rem 1.25rem; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;">
-                            📋 Copy Link
-                        </button>
-                    </div>
-                `;
-            }).join('');
-
-            // Add a help note at the bottom
-            container.innerHTML += `
-                <div style="margin-top: 0.5rem; padding: 1rem; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; font-size: 0.85rem; color: #0369a1;">
-                    <strong>How to use:</strong> Copy a link and bookmark it on your classroom IFP. The display will load automatically — no login required, no session expiry.
-                </div>
-            `;
-
-            // Also load celebration settings
-            loadCelebrationSettings();
-        }
-
-        function copyDisplayLink(btn, url) {
-            navigator.clipboard.writeText(url).then(() => {
-                const originalText = btn.textContent;
-                btn.textContent = '✅ Copied!';
-                btn.style.background = '#10b981';
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                    btn.style.background = 'linear-gradient(135deg, #6366f1, #8b5cf6)';
-                }, 2000);
-            }).catch(() => {
-                // Fallback for older browsers
-                prompt('Copy this link:', url);
-            });
-        }
-
-        // ===========================================
-        // CELEBRATION MODE (Admin Controls)
-        // ===========================================
-        async function loadCelebrationSettings() {
-            const schoolId = sessionStorage.getItem('schoolId');
-            if (!schoolId) return;
-
-            try {
-                const doc = await db.collection('schools').doc(schoolId).get();
-                if (!doc.exists) return;
-                const data = doc.data();
-
-                if (data.celebration) {
-                    const c = data.celebration;
-                    document.getElementById('celebrationActive').checked = !!c.active;
-                    document.getElementById('celebrationMessage').value = c.message || '';
-                    document.getElementById('celebrationColor').value = c.color || '#ef4444';
-                    document.getElementById('celebrationInterval').value = c.intervalSeconds || 45;
-                    document.getElementById('celebrationCount').value = c.confettiCount || 500;
-
-                    if (c.expiresAt) {
-                        const expDate = c.expiresAt.seconds ? new Date(c.expiresAt.seconds * 1000) : new Date(c.expiresAt);
-                        document.getElementById('celebrationExpiry').value = expDate.toISOString().split('T')[0];
-                    }
-
-                    toggleCelebrationPreview();
-                }
-            } catch (e) {
-                console.error('Failed to load celebration settings:', e);
-            }
-        }
-
-        function toggleCelebrationPreview() {
-            const active = document.getElementById('celebrationActive').checked;
-            const knob = document.getElementById('celebToggleKnob');
-            const track = knob.previousElementSibling;
-
-            if (active) {
-                knob.style.left = '26px';
-                track.style.background = '#ef4444';
-            } else {
-                knob.style.left = '2px';
-                track.style.background = '#475569';
-            }
-        }
-
-        async function saveCelebration() {
-            const schoolId = sessionStorage.getItem('schoolId');
-            if (!schoolId) return;
-
-            const active = document.getElementById('celebrationActive').checked;
-            const message = document.getElementById('celebrationMessage').value.trim();
-            const color = document.getElementById('celebrationColor').value;
-            const intervalSeconds = parseInt(document.getElementById('celebrationInterval').value) || 45;
-            const confettiCount = parseInt(document.getElementById('celebrationCount').value) || 500;
-            const expiryStr = document.getElementById('celebrationExpiry').value;
-
-            const status = document.getElementById('celebSaveStatus');
-            status.textContent = 'Saving...';
-            status.style.color = '#f59e0b';
-
-            try {
-                const celebData = {
-                    active: active,
-                    message: message || '🏆 CHAMPIONS!',
-                    color: color,
-                    intervalSeconds: Math.max(15, Math.min(300, intervalSeconds)),
-                    confettiCount: Math.max(50, Math.min(1000, confettiCount))
-                };
-
-                if (expiryStr) {
-                    celebData.expiresAt = new Date(expiryStr + 'T23:59:59');
-                } else {
-                    celebData.expiresAt = null;
-                }
-
-                await db.collection('schools').doc(schoolId).update({
-                    celebration: celebData
-                });
-
-                status.textContent = active ? '✅ Celebration is LIVE!' : '✅ Saved (off)';
-                status.style.color = active ? '#ef4444' : '#10b981';
-                setTimeout(() => { status.textContent = ''; }, 3000);
-            } catch (e) {
-                console.error('Failed to save celebration:', e);
-                status.textContent = '❌ Error: ' + e.message;
-                status.style.color = '#ef4444';
-            }
         }
 
         // ===========================================
@@ -4466,7 +3765,6 @@ Sophia Davis
         async function loadActiveAnnouncements() {
             const schoolId = sessionStorage.getItem('schoolId');
             const list = document.getElementById('activeAnnouncementsList');
-            const countEl = document.getElementById('annActiveCount');
             if (!list) return;
 
             try {
@@ -4476,41 +3774,25 @@ Sophia Davis
                     .get();
 
                 if (snapshot.empty) {
-                    list.innerHTML = `<div class="empty-state" style="padding:2rem; text-align:center; color:#94a3b8;">No announcements yet. Create one above!</div>`;
-                    if (countEl) countEl.textContent = '';
+                    list.innerHTML = `<div class="empty-state">No active announcements.</div>`;
                     return;
                 }
 
-                const total = snapshot.docs.length;
-                const activeCount = snapshot.docs.filter(d => d.data().active).length;
-                if (countEl) countEl.textContent = `${activeCount} of ${total} active`;
-
                 list.innerHTML = snapshot.docs.map(doc => {
                     const data = doc.data();
-                    const isActive = data.active !== false;
                     const targets = data.targets && data.targets.length > 0
-                        ? data.targets.map(t => `<span style="display:inline-block; background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600;">${escapeHtml(t)}</span>`).join(' ')
-                        : `<span style="display:inline-block; background:#dcfce7; color:#16a34a; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600;">All Classes</span>`;
+                        ? data.targets.map(t => `<span class="badge badge-blue" style="font-size:0.75rem;">${t}</span>`).join(' ')
+                        : `<span class="badge badge-green" style="font-size:0.75rem;">Global (All)</span>`;
 
-                    const time = data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleDateString() : '';
+                    const time = data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleString() : '';
 
                     return `
-                        <div style="background: ${isActive ? 'white' : '#f8fafc'}; border: 1px solid ${isActive ? '#a5b4fc' : 'var(--border)'}; border-left: 4px solid ${isActive ? '#6366f1' : '#cbd5e1'}; border-radius: 8px; padding: 1rem 1.25rem; opacity: ${isActive ? '1' : '0.7'}; transition: all 0.2s;">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
-                                <div style="flex: 1; min-width: 0;">
-                                    <div id="ann-msg-${doc.id}" style="font-weight: 600; font-size: 1rem; margin-bottom: 0.4rem; color: ${isActive ? 'var(--text-dark)' : '#94a3b8'}; word-break: break-word;">${escapeHtml(data.message)}</div>
-                                    <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 0.4rem;">${targets}</div>
-                                    <div style="font-size: 0.75rem; color: #94a3b8;">${time}</div>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0;">
-                                    <label style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;" title="${isActive ? 'Click to turn OFF' : 'Click to turn ON'}">
-                                        <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleAnnouncement('${doc.id}', this.checked)" style="opacity:0; width:0; height:0;">
-                                        <span style="position:absolute; top:0; left:0; right:0; bottom:0; background: ${isActive ? '#6366f1' : '#cbd5e1'}; border-radius: 24px; transition: 0.3s;"></span>
-                                        <span style="position:absolute; top:2px; left: ${isActive ? '22px' : '2px'}; width:20px; height:20px; background:white; border-radius:50%; transition: 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></span>
-                                    </label>
-                                    <button onclick="editAnnouncement('${doc.id}')" title="Edit" style="background:none; border:1px solid #e2e8f0; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:0.85rem; color:#64748b;">Edit</button>
-                                    <button onclick="deleteAnnouncement('${doc.id}')" title="Delete permanently" style="background:none; border:1px solid #fecaca; border-radius:6px; padding:4px 8px; cursor:pointer; font-size:0.85rem; color:#ef4444;">Del</button>
-                                </div>
+                        <div style="background:white; border:1px solid var(--border); border-radius:8px; padding:1rem; position:relative;">
+                            <div style="font-weight:700; font-size:1.1rem; margin-bottom:0.5rem; color:var(--primary);">${escapeHtml(data.message)}</div>
+                            <div style="margin-bottom:0.8rem;">${targets}</div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; color:#94a3b8;">
+                                <span>${time}</span>
+                                <button class="btn btn-sm btn-danger" onclick="deleteAnnouncement('${doc.id}')">Delete</button>
                             </div>
                         </div>
                     `;
@@ -4538,7 +3820,7 @@ Sophia Davis
             try {
                 await db.collection('schools').doc(schoolId).collection('announcements').add({
                     message: message,
-                    targets: targets,
+                    targets: targets, // Empty array = Global
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     active: true
                 });
@@ -4546,47 +3828,17 @@ Sophia Davis
                 msgInput.value = '';
                 deselectAllClassesForAnn();
                 loadActiveAnnouncements();
+
+                // Optional: Show simple toast or alert
+                // alert("Announcement published!"); 
             } catch (err) {
                 console.error(err);
-                alert("Failed to save announcement.");
-            }
-        }
-
-        async function toggleAnnouncement(id, isActive) {
-            const schoolId = sessionStorage.getItem('schoolId');
-            try {
-                await db.collection('schools').doc(schoolId).collection('announcements').doc(id).update({
-                    active: isActive
-                });
-                loadActiveAnnouncements();
-            } catch (err) {
-                console.error('Toggle error:', err);
-                alert('Failed to toggle announcement.');
-            }
-        }
-
-        async function editAnnouncement(id) {
-            const schoolId = sessionStorage.getItem('schoolId');
-            const docRef = db.collection('schools').doc(schoolId).collection('announcements').doc(id);
-            const doc = await docRef.get();
-            if (!doc.exists) return;
-
-            const currentMsg = doc.data().message;
-            const newMsg = prompt('Edit announcement:', currentMsg);
-
-            if (newMsg !== null && newMsg.trim() !== '' && newMsg.trim() !== currentMsg) {
-                try {
-                    await docRef.update({ message: newMsg.trim() });
-                    loadActiveAnnouncements();
-                } catch (err) {
-                    console.error('Edit error:', err);
-                    alert('Failed to update announcement.');
-                }
+                alert("Failed to publish.");
             }
         }
 
         async function deleteAnnouncement(id) {
-            if (!confirm("Permanently delete this announcement from your library?")) return;
+            if (!confirm("Delete this announcement? It will stop showing immediately.")) return;
 
             const schoolId = sessionStorage.getItem('schoolId');
             try {
@@ -4598,229 +3850,6 @@ Sophia Davis
         }
 
         // NOTE: The main switchTab function is defined earlier in the file.
-
-        // =====================================================
-        // PUNCTUALITY DASHBOARD FUNCTIONS
-        // =====================================================
-
-        let punctualityData = []; // Current loaded arrivals for punctuality view
-
-        async function loadPunctualityDashboard() {
-            const schoolId = sessionStorage.getItem('schoolId');
-            if (!schoolId) return;
-
-            // Default date to today
-            const dateInput = document.getElementById('punctualityDateInput');
-            if (!dateInput.value) {
-                const now = new Date();
-                dateInput.value = now.getFullYear() + '-' +
-                    String(now.getMonth() + 1).padStart(2, '0') + '-' +
-                    String(now.getDate()).padStart(2, '0');
-            }
-
-            const selectedDate = dateInput.value;
-            const yearFilter = document.getElementById('punctualityYearFilter').value;
-            const classFilter = document.getElementById('punctualityClassFilter').value;
-
-            // Populate class filter from schoolClasses if available
-            if (schoolClasses && schoolClasses.length > 0) {
-                const classSelect = document.getElementById('punctualityClassFilter');
-                const currentVal = classSelect.value;
-                let classNames = [...new Set(schoolClasses.map(c => c.name))].sort();
-                if (yearFilter) {
-                    classNames = [...new Set(schoolClasses.filter(c => c.year == yearFilter).map(c => c.name))].sort();
-                }
-                classSelect.innerHTML = '<option value="">All Classes</option>';
-                classNames.forEach(name => {
-                    classSelect.innerHTML += `<option value="${name}">${name}</option>`;
-                });
-                if (classNames.includes(currentVal)) classSelect.value = currentVal;
-            }
-
-            try {
-                const snapshot = await db.collection('arrivals')
-                    .where('schoolId', '==', schoolId)
-                    .where('date', '==', selectedDate)
-                    .get();
-
-                let arrivals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                // Apply filters
-                if (yearFilter) {
-                    arrivals = arrivals.filter(a => a.year == yearFilter);
-                }
-                if (classFilter) {
-                    arrivals = arrivals.filter(a => a.class === classFilter);
-                }
-
-                // Sort by arrival time
-                arrivals.sort((a, b) => {
-                    const tA = a.arrivalTime ? (a.arrivalTime.seconds || 0) : 0;
-                    const tB = b.arrivalTime ? (b.arrivalTime.seconds || 0) : 0;
-                    return tA - tB;
-                });
-
-                punctualityData = arrivals;
-
-                // Compute stats
-                const total = arrivals.length;
-                const lateCount = arrivals.filter(a => a.isLate).length;
-                const onTimeCount = total - lateCount;
-                const onTimePct = total > 0 ? Math.round((onTimeCount / total) * 100) : 0;
-                const latePct = total > 0 ? Math.round((lateCount / total) * 100) : 0;
-
-                document.getElementById('puncTotalArrived').textContent = total;
-                document.getElementById('puncOnTimePercent').textContent = onTimePct + '%';
-                document.getElementById('puncLatePercent').textContent = latePct + '%';
-                document.getElementById('puncLateCount').textContent = lateCount;
-                document.getElementById('puncTableCount').textContent = `${total} records`;
-
-                renderPunctualityTable(arrivals);
-                loadChronicLateness(schoolId, selectedDate);
-
-            } catch (err) {
-                console.error('Error loading punctuality:', err);
-            }
-        }
-
-        function renderPunctualityTable(arrivals) {
-            const tbody = document.getElementById('punctualityTableBody');
-
-            if (arrivals.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">No arrivals found for this date</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = arrivals.map(a => {
-                let timeStr = '--:--';
-                if (a.arrivalTime) {
-                    const t = a.arrivalTime.toDate ? a.arrivalTime.toDate() : new Date(a.arrivalTime);
-                    timeStr = t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-                }
-
-                const method = a.method === 'bus' ? '\ud83d\ude8c Bus' : '\ud83d\udeb6 Manual';
-
-                const statusHtml = a.isLate
-                    ? `<span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700; background:#fee2e2; color:#991b1b;">Late (${a.minutesLate || '?'}m)</span>`
-                    : `<span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700; background:#dcfce7; color:#166534;">On Time</span>`;
-
-                return `
-                    <tr>
-                        <td style="padding:0.6rem 0.75rem; border-bottom:1px solid #f1f5f9; font-family:monospace; font-weight:600; color:#6366f1;">${a.bookRentalNumber || '\u2014'}</td>
-                        <td style="padding:0.6rem 0.75rem; border-bottom:1px solid #f1f5f9;"><strong>${escapeHtml(a.studentName)}</strong></td>
-                        <td style="padding:0.6rem 0.75rem; border-bottom:1px solid #f1f5f9;">Y${a.year} ${a.class}</td>
-                        <td style="padding:0.6rem 0.75rem; border-bottom:1px solid #f1f5f9;">${timeStr}</td>
-                        <td style="padding:0.6rem 0.75rem; border-bottom:1px solid #f1f5f9;">${method}</td>
-                        <td style="padding:0.6rem 0.75rem; border-bottom:1px solid #f1f5f9;">${statusHtml}</td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        async function loadChronicLateness(schoolId, referenceDate) {
-            const container = document.getElementById('chronicLateList');
-            container.innerHTML = '<p style="color:var(--text-muted); text-align:center;">Calculating...</p>';
-
-            try {
-                // Get dates for last 7 days
-                const refDate = new Date(referenceDate + 'T00:00:00');
-                const dates = [];
-                for (let i = 0; i < 7; i++) {
-                    const d = new Date(refDate);
-                    d.setDate(d.getDate() - i);
-                    dates.push(d.getFullYear() + '-' +
-                        String(d.getMonth() + 1).padStart(2, '0') + '-' +
-                        String(d.getDate()).padStart(2, '0'));
-                }
-
-                // Query all arrivals in the 7 day window
-                // Firestore 'in' queries support up to 10 values
-                const snapshot = await db.collection('arrivals')
-                    .where('schoolId', '==', schoolId)
-                    .where('date', 'in', dates)
-                    .where('isLate', '==', true)
-                    .get();
-
-                const lateArrivals = snapshot.docs.map(doc => doc.data());
-
-                // Group by studentId
-                const lateByStudent = {};
-                lateArrivals.forEach(a => {
-                    if (!lateByStudent[a.studentId]) {
-                        lateByStudent[a.studentId] = {
-                            name: a.studentName,
-                            bookRentalNumber: a.bookRentalNumber,
-                            year: a.year,
-                            class: a.class,
-                            count: 0
-                        };
-                    }
-                    lateByStudent[a.studentId].count++;
-                });
-
-                // Filter to 3+ times
-                const chronicStudents = Object.values(lateByStudent)
-                    .filter(s => s.count >= 3)
-                    .sort((a, b) => b.count - a.count);
-
-                if (chronicStudents.length === 0) {
-                    container.innerHTML = '<p style="color:#16a34a; text-align:center; font-weight:600;">\u2705 No chronically late students in the past 7 days</p>';
-                    return;
-                }
-
-                container.innerHTML = chronicStudents.map(s => `
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding:0.6rem; border:1px solid #fee2e2; border-radius:8px; margin-bottom:0.5rem; background:#fef2f2;">
-                        <div>
-                            <strong style="color:#991b1b;">${escapeHtml(s.name)}</strong>
-                            <span style="font-size:0.8rem; color:#a16207; margin-left:0.5rem;">Y${s.year} ${s.class}</span>
-                            ${s.bookRentalNumber ? `<span style="font-size:0.8rem; font-family:monospace; color:#6366f1; margin-left:0.5rem;">#${s.bookRentalNumber}</span>` : ''}
-                        </div>
-                        <span style="background:#ef4444; color:white; padding:2px 10px; border-radius:12px; font-size:0.8rem; font-weight:700;">${s.count}x late</span>
-                    </div>
-                `).join('');
-
-            } catch (err) {
-                console.error('Error loading chronic lateness:', err);
-                container.innerHTML = '<p style="color:var(--text-muted); text-align:center;">Error loading data</p>';
-            }
-        }
-
-        function exportPunctualityCSV() {
-            if (punctualityData.length === 0) {
-                alert('No data to export. Load a date first.');
-                return;
-            }
-
-            const headers = ['Book Rental No.', 'Student Name', 'Year', 'Class', 'Arrival Time', 'Method', 'Late', 'Minutes Late'];
-            const rows = punctualityData.map(a => {
-                let timeStr = '';
-                if (a.arrivalTime) {
-                    const t = a.arrivalTime.toDate ? a.arrivalTime.toDate() : new Date(a.arrivalTime);
-                    timeStr = t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-                }
-                return [
-                    a.bookRentalNumber || '',
-                    `"${(a.studentName || '').replace(/"/g, '""')}"`,
-                    a.year,
-                    a.class,
-                    timeStr,
-                    a.method || 'manual',
-                    a.isLate ? 'Yes' : 'No',
-                    a.minutesLate || 0
-                ].join(',');
-            });
-
-            const csvContent = [headers.join(','), ...rows].join('\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            const dateStr = document.getElementById('punctualityDateInput').value || 'report';
-            link.setAttribute('href', url);
-            link.setAttribute('download', `punctuality_${dateStr}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
 
         // Expose functions globally for sidebar navigation
         // Explicitly export functions to global scope
@@ -4834,285 +3863,6 @@ Sophia Davis
         window.loadSettings = loadSettings;
         window.loadClasses = loadClasses;
         window.loadAnnouncementsTab = loadAnnouncementsTab;
-        window.loadPunctualityDashboard = loadPunctualityDashboard;
-        // =====================================================
-        // BUS MANAGEMENT FUNCTIONS
-        // =====================================================
-
-        let busList = [];
-        let busSelectedStudentIds = new Set();
-
-        async function loadBuses() {
-            const schoolId = sessionStorage.getItem('schoolId');
-            if (!schoolId) return;
-
-            db.collection('buses')
-                .where('schoolId', '==', schoolId)
-                .onSnapshot(snapshot => {
-                    busList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    renderBusList();
-                }, err => {
-                    console.error('Error loading buses:', err);
-                    document.getElementById('busListContainer').innerHTML =
-                        '<p style="text-align:center; color:#ef4444; padding:2rem;">Error loading buses</p>';
-                });
-        }
-
-        function renderBusList() {
-            const container = document.getElementById('busListContainer');
-            document.getElementById('busCount').textContent = `${busList.length} bus${busList.length !== 1 ? 'es' : ''}`;
-
-            if (busList.length === 0) {
-                container.innerHTML = '<div class="settings-card" style="text-align:center; padding:3rem;"><p style="font-size:1.5rem; margin-bottom:0.5rem;">🚌</p><p style="color:var(--text-muted);">No buses yet. Click "Add Bus" to create one.</p></div>';
-                return;
-            }
-
-            container.innerHTML = busList.map(bus => {
-                const studentCount = bus.studentIds ? bus.studentIds.length : 0;
-                return `
-                    <div class="settings-card" style="margin-bottom:1rem; padding:1.25rem;">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
-                            <div>
-                                <h3 style="margin:0 0 0.25rem 0; display:flex; align-items:center; gap:0.5rem;">
-                                    🚌 ${escapeHtml(bus.name)}
-                                    ${bus.plateNumber ? `<span style="font-size:0.8rem; font-weight:500; color:var(--text-secondary); background:#f1f5f9; padding:2px 8px; border-radius:6px;">${escapeHtml(bus.plateNumber)}</span>` : ''}
-                                </h3>
-                                <div style="font-size:0.85rem; color:var(--text-secondary); margin-top:0.5rem; display:flex; flex-wrap:wrap; gap:1rem;">
-                                    ${bus.driverName ? `<span>🧑‍✈️ Driver: <strong>${escapeHtml(bus.driverName)}</strong></span>` : ''}
-                                    ${bus.minderName ? `<span>👤 Minder: <strong>${escapeHtml(bus.minderName)}</strong></span>` : ''}
-                                    <span>👥 ${studentCount} student${studentCount !== 1 ? 's' : ''}</span>
-                                    ${bus.capacity ? `<span>📦 Capacity: ${bus.capacity}</span>` : ''}
-                                </div>
-                                ${bus.staffEmail ? `<div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">📧 Staff login: ${escapeHtml(bus.staffEmail)}</div>` : ''}
-                            </div>
-                            <div style="display:flex; gap:0.5rem;">
-                                <button class="btn btn-secondary" style="padding:0.4rem 0.75rem; font-size:0.85rem;" onclick="editBus('${bus.id}')">Edit</button>
-                                <button class="btn btn-danger" style="padding:0.4rem 0.75rem; font-size:0.85rem; background:#ef4444; color:white; border:none; border-radius:8px; cursor:pointer;" onclick="deleteBus('${bus.id}', '${escapeHtml(bus.name)}')">Delete</button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function openBusModal(editData) {
-            document.getElementById('busForm').reset();
-            document.getElementById('busEditId').value = '';
-            document.getElementById('busFormError').style.display = 'none';
-            document.getElementById('busModalTitle').textContent = editData ? 'Edit Bus' : 'Add New Bus';
-            busSelectedStudentIds = new Set();
-
-            if (editData) {
-                document.getElementById('busEditId').value = editData.id;
-                document.getElementById('busNameInput').value = editData.name || '';
-                document.getElementById('busPlateInput').value = editData.plateNumber || '';
-                document.getElementById('busCapacityInput').value = editData.capacity || 45;
-                document.getElementById('busDriverNameInput').value = editData.driverName || '';
-                document.getElementById('busMindernameInput').value = editData.minderName || '';
-                if (editData.studentIds) {
-                    busSelectedStudentIds = new Set(editData.studentIds);
-                }
-                // Hide account creation when editing
-                document.getElementById('busStaffAccountSection').style.display = 'none';
-            } else {
-                document.getElementById('busStaffAccountSection').style.display = 'block';
-            }
-
-            renderBusStudentList();
-            document.getElementById('busModal').classList.add('active');
-        }
-        window.openBusModal = openBusModal;
-
-        function closeBusModal() {
-            document.getElementById('busModal').classList.remove('active');
-        }
-        window.closeBusModal = closeBusModal;
-
-        function renderBusStudentList() {
-            const container = document.getElementById('busStudentList');
-            const searchTerm = (document.getElementById('busStudentSearch').value || '').toLowerCase();
-
-            if (!students || students.length === 0) {
-                container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:1rem;">No students loaded</p>';
-                return;
-            }
-
-            let filtered = students;
-            if (searchTerm) {
-                filtered = students.filter(s =>
-                    s.name.toLowerCase().includes(searchTerm) ||
-                    (s.admissionNumber && s.admissionNumber.includes(searchTerm))
-                );
-            }
-
-            // Sort: selected first, then by name
-            filtered.sort((a, b) => {
-                const aSelected = busSelectedStudentIds.has(a.id) ? 0 : 1;
-                const bSelected = busSelectedStudentIds.has(b.id) ? 0 : 1;
-                if (aSelected !== bSelected) return aSelected - bSelected;
-                return a.name.localeCompare(b.name);
-            });
-
-            container.innerHTML = filtered.map(s => {
-                const checked = busSelectedStudentIds.has(s.id);
-                return `
-                    <div onclick="toggleBusStudent('${s.id}')" style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem; border-radius:6px; cursor:pointer; background:${checked ? '#eff6ff' : 'transparent'}; border-left:3px solid ${checked ? '#3b82f6' : 'transparent'}; margin-bottom:2px;">
-                        <input type="checkbox" ${checked ? 'checked' : ''} onclick="event.stopPropagation(); toggleBusStudent('${s.id}')">
-                        <div>
-                            <strong style="font-size:0.9rem;">${escapeHtml(s.name)}</strong>
-                            <span style="font-size:0.8rem; color:var(--text-muted); margin-left:0.5rem;">Y${s.year} ${s.class}</span>
-                            ${s.bookRentalNumber ? `<span style="font-size:0.75rem; font-family:monospace; color:#6366f1; margin-left:0.5rem;">#${s.bookRentalNumber}</span>` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            document.getElementById('busSelectedCount').textContent = busSelectedStudentIds.size;
-        }
-
-        function toggleBusStudent(studentId) {
-            if (busSelectedStudentIds.has(studentId)) {
-                busSelectedStudentIds.delete(studentId);
-            } else {
-                busSelectedStudentIds.add(studentId);
-            }
-            renderBusStudentList();
-        }
-        window.toggleBusStudent = toggleBusStudent;
-
-        function filterBusStudents() {
-            renderBusStudentList();
-        }
-        window.filterBusStudents = filterBusStudents;
-
-        // Save Bus (Create or Update)
-        document.getElementById('busForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('saveBusBtn');
-            const errorDiv = document.getElementById('busFormError');
-            errorDiv.style.display = 'none';
-
-            const editId = document.getElementById('busEditId').value;
-            const name = document.getElementById('busNameInput').value.trim();
-            const plateNumber = document.getElementById('busPlateInput').value.trim();
-            const capacity = parseInt(document.getElementById('busCapacityInput').value) || 45;
-            const driverName = document.getElementById('busDriverNameInput').value.trim();
-            const minderName = document.getElementById('busMindernameInput').value.trim();
-            const staffEmail = document.getElementById('busStaffEmailInput').value.trim();
-            const staffPassword = document.getElementById('busStaffPasswordInput').value;
-            const schoolId = sessionStorage.getItem('schoolId');
-
-            if (!name) {
-                errorDiv.textContent = 'Bus name is required.';
-                errorDiv.style.display = 'block';
-                return;
-            }
-
-            btn.disabled = true;
-            const oldText = btn.textContent;
-            btn.textContent = 'Saving...';
-
-            let secondaryApp = null;
-
-            try {
-                let staffUserId = null;
-
-                // Create bus staff account if email provided (only for new buses)
-                if (!editId && staffEmail && staffPassword) {
-                    if (staffPassword.length < 6) {
-                        errorDiv.textContent = 'Password must be at least 6 characters.';
-                        errorDiv.style.display = 'block';
-                        btn.disabled = false;
-                        btn.textContent = oldText;
-                        return;
-                    }
-
-                    secondaryApp = firebase.initializeApp(firebaseConfig, "BusStaffCreator_" + Date.now());
-                    const userCredential = await secondaryApp.auth().createUserWithEmailAndPassword(staffEmail, staffPassword);
-                    staffUserId = userCredential.user.uid;
-
-                    // Create user doc with bus_staff role
-                    await db.collection('users').doc(staffUserId).set({
-                        displayName: driverName || minderName || name + ' Staff',
-                        email: staffEmail,
-                        role: 'bus_staff',
-                        schoolId: schoolId,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        status: 'active'
-                    });
-                }
-
-                const busData = {
-                    name: name,
-                    plateNumber: plateNumber || null,
-                    capacity: capacity,
-                    driverName: driverName || null,
-                    minderName: minderName || null,
-                    studentIds: Array.from(busSelectedStudentIds),
-                    schoolId: schoolId,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                };
-
-                if (staffUserId) {
-                    busData.staffUserId = staffUserId;
-                    busData.staffEmail = staffEmail;
-                }
-
-                if (editId) {
-                    await db.collection('buses').doc(editId).update(busData);
-                    // Also update the user doc busId reference
-                    if (staffUserId) {
-                        await db.collection('users').doc(staffUserId).update({ busId: editId });
-                    }
-                } else {
-                    busData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                    const newBusRef = await db.collection('buses').add(busData);
-
-                    // Link staff user to bus
-                    if (staffUserId) {
-                        await db.collection('users').doc(staffUserId).update({ busId: newBusRef.id });
-                    }
-
-                    if (staffEmail && staffUserId) {
-                        alert(`✅ Bus "${name}" created!\n\nBus Staff Login:\nEmail: ${staffEmail}\nPassword: ${staffPassword}\n\nPlease share these credentials.`);
-                    }
-                }
-
-                closeBusModal();
-
-            } catch (err) {
-                console.error('Bus save error:', err);
-                errorDiv.textContent = 'Error: ' + err.message;
-                errorDiv.style.display = 'block';
-            } finally {
-                if (secondaryApp) await secondaryApp.delete();
-                btn.disabled = false;
-                btn.textContent = oldText;
-            }
-        });
-
-        async function editBus(busId) {
-            const bus = busList.find(b => b.id === busId);
-            if (!bus) return;
-            // Ensure students are loaded
-            if (!students || students.length === 0) await loadStudents();
-            openBusModal(bus);
-        }
-        window.editBus = editBus;
-
-        async function deleteBus(busId, busName) {
-            if (!confirm(`Delete bus "${busName}"? This cannot be undone.`)) return;
-            try {
-                await db.collection('buses').doc(busId).delete();
-            } catch (err) {
-                console.error('Delete bus error:', err);
-                alert('Error deleting bus: ' + err.message);
-            }
-        }
-        window.deleteBus = deleteBus;
-
-        window.exportPunctualityCSV = exportPunctualityCSV;
-        window.loadBuses = loadBuses;
 
         // UI Helpers
         window.toggleSidebar = function () {

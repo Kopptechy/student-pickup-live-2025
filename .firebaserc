@@ -1,0 +1,13 @@
+{
+  "projects": {
+    "default": "student-pickup-9ac78"
+  },
+  "targets": {},
+  "etags": {
+    "student-pickup-9ac78": {
+      "extensionInstances": {
+        "firestore-send-email": "726bd2b89980b7000f2bec71786faa12fcc6ee3f57685a6575ed0dd2310d12c9"
+      }
+    }
+  }
+}

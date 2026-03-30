@@ -1,0 +1,38 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper to check auth
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Helper to check if user is admin of the school
+    function isSchoolAdmin(schoolId) {
+      let userData = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+      return isSignedIn() && 
+             userData.schoolId == schoolId &&
+             (userData.role == 'admin' || userData.role == 'superAdmin');
+    }
+
+    // School Logos - Allow any authenticated user to upload (simplified for now)
+    match /school_logos/{schoolId}/{imageId} {
+      allow read: if true; 
+      allow write: if isSignedIn() && request.resource.size < 5 * 1024 * 1024; // 5MB limit
+    }
+
+    // Picker Photos
+    match /pickers/{schoolId}/{date}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.resource.size < 50 * 1024 * 1024;
+    }
+
+    // Parent Profile Photos
+    match /parent_photos/{userId} {
+      // Anyone can read (needed for reception to verify parent)
+      allow read: if true;
+      // Only the user can upload their own photo
+      allow write: if isSignedIn() && request.auth.uid == userId && request.resource.size < 5 * 1024 * 1024;
+    }
+  }
+}

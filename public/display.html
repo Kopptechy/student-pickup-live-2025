@@ -5,142 +5,281 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Classroom display for student pickup notifications">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-analytics-compat.js"></script>
+
+    <!-- Firebase Config -->
+    <script src="/firebase-config.js"></script>
+
     <title>Classroom Display - Student Pickup</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/styles.css">
     <style>
+        :root {
+            /* Modern Glass Palette */
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            --glass-surface: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+
+            --text-main: #f8fafc;
+            /* Slate 50 */
+            --text-muted: #94a3b8;
+            /* Slate 400 */
+
+            --accent-urgent: #ef4444;
+            --accent-warning: #f59e0b;
+            --accent-new: #3b82f6;
+            --accent-success: #10b981;
+        }
+
         body {
             margin: 0;
             padding: 0;
             overflow: hidden;
+            background: #0f172a;
+            /* Fallback */
+            background-image:
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.15) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(16, 185, 129, 0.15) 0px, transparent 50%);
+            background-size: cover;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: var(--text-main);
         }
 
         .display-container {
             height: 100vh;
             display: flex;
             flex-direction: column;
-            padding: var(--spacing-sm);
-            /* Reduced from lg */
+            padding: 2rem;
+            padding-bottom: 80px;
+            /* Space for ticker */
+            box-sizing: border-box;
+            overflow: hidden;
+            /* Prevent double scrollbars */
         }
 
+        /* HEADER */
         .display-header {
-            background: var(--gradient-primary);
-            padding: var(--spacing-sm) var(--spacing-md);
-            /* Greatly reduced padding */
-            border-radius: var(--radius-lg);
-            margin-bottom: var(--spacing-sm);
-            /* Reduced margin */
-            box-shadow: var(--shadow-md);
-            text-align: center;
-            flex-shrink: 0;
-            /* Don't shrink */
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            padding: 1.5rem 2.5rem;
+            border-radius: 24px;
+            margin-bottom: 2rem;
+            box-shadow: var(--glass-shadow);
             display: flex;
             justify-content: space-between;
+            /* Space out title and status */
             align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Header Accent Line */
+        .display-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
         }
 
         .display-header h1 {
-            font-size: 1.2rem;
-            /* Further reduced */
+            font-size: 2.25rem;
+            font-weight: 800;
+            /* Extra Bold */
             margin: 0;
-            text-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+            color: #fff;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .class-info {
             font-size: 1rem;
-            /* Further reduced */
-            opacity: 0.9;
-            margin-top: 0;
-            /* Remove margin */
-            font-weight: bold;
+            font-weight: 700;
+            color: #bae6fd;
+            /* Light Blue */
+            background: rgba(56, 189, 248, 0.2);
+            padding: 4px 12px;
+            border-radius: 12px;
+            display: inline-block;
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border: 1px solid rgba(56, 189, 248, 0.3);
         }
 
-        /* ADAPTIVE LAYOUT RULES */
-        /* Default is Compact (5+ students) - what we currently have */
+        /* LIVE BADGE */
+        .live-badge {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            padding: 6px 14px;
+            border-radius: 99px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(4px);
+        }
+
+        .live-badge.disconnected {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 8px currentColor;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        /* PICKUPS GRID */
         .pickups-container {
             flex: 1;
             overflow-y: auto;
-            padding: var(--spacing-xs);
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: var(--spacing-xs);
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
             align-content: start;
+            padding: 4px;
+            padding-bottom: 2rem;
+            /* Extra space at bottom so last row buttons aren't cut off */
+            /* Show scrollbar when needed for usability */
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
         }
 
-        /* 1-2 Students: BIG MODE */
-        .pickups-container[data-count="1"],
-        .pickups-container[data-count="2"] {
-            grid-template-columns: 1fr;
-            /* Single column */
-            padding: var(--spacing-sm);
-            gap: var(--spacing-sm);
+        .pickups-container::-webkit-scrollbar {
+            width: 8px;
         }
 
-        .pickups-container[data-count="1"] .pickup-card,
-        .pickups-container[data-count="2"] .pickup-card {
-            padding: var(--spacing-sm);
-            border-width: 2px;
+        .pickups-container::-webkit-scrollbar-track {
+            background: transparent;
         }
 
-        .pickups-container[data-count="1"] .student-name,
-        .pickups-container[data-count="2"] .student-name {
-            font-size: 2.5rem;
-            /* Reduced from 4rem */
+        .pickups-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
         }
 
-        .pickups-container[data-count="1"] .waiting-badge,
-        .pickups-container[data-count="2"] .waiting-badge {
-            font-size: 1.2rem;
-            padding: var(--spacing-xs) var(--spacing-md);
+        .pickups-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
         }
 
-        .pickups-container[data-count="1"] .acknowledge-btn,
-        .pickups-container[data-count="2"] .acknowledge-btn {
-            font-size: 1rem;
-            padding: 6px 10px;
-            margin-top: 4px;
-        }
-
-        /* 3-4 Students: MEDIUM MODE */
-        .pickups-container[data-count="3"],
-        .pickups-container[data-count="4"] {
-            grid-template-columns: repeat(2, 1fr);
-            gap: var(--spacing-md);
-            padding: var(--spacing-md);
-        }
-
-        .pickups-container[data-count="3"] .student-name,
-        .pickups-container[data-count="4"] .student-name {
-            font-size: 2.2rem;
-            /* Medium text */
-        }
-
-        .pickups-container[data-count="3"] .waiting-badge,
-        .pickups-container[data-count="4"] .waiting-badge {
-            font-size: 1.1rem;
-        }
-
-        /* Standard Compact Mode (default) styles for reference */
+        /* GLASS CARD */
         .pickup-card {
-            background: var(--bg-card);
-            border: 2px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: var(--spacing-xs);
-            margin-bottom: 0;
-            animation: slideInLeft 0.5s ease;
-            transition: all var(--transition-normal);
-            height: fit-content;
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.2);
+            animation: slideInUp 0.6s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+            transition: transform 0.3s, box-shadow 0.3s, background 0.3s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            /* Removed overflow:hidden and min-height so cards expand to fit 2-line names */
         }
 
-        .acknowledge-btn {
-            margin-top: 2px;
-            width: 100%;
+        .pickup-card:hover {
+            transform: translateY(-4px) scale(1.01);
+            background: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 12px 40px -4px rgba(0, 0, 0, 0.4);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Status Glows/Borders */
+        .pickup-card.danger {
+            box-shadow: inset 4px 0 0 0 #ef4444;
+        }
+
+        .pickup-card.warning {
+            box-shadow: inset 4px 0 0 0 #f59e0b;
+        }
+
+        .pickup-card.new {
+            box-shadow: inset 4px 0 0 0 #3b82f6;
+        }
+
+        .pickup-card::before {
+            /* Top highlight for glass effect */
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0));
+        }
+
+        .student-name {
+            color: #fff;
+            font-weight: 800;
+            font-size: 1.75rem;
+            line-height: 1.1;
+            margin-bottom: 0.25rem;
+            word-wrap: break-word;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .waiting-badge {
             font-size: 0.85rem;
-            padding: 4px 8px;
+            display: inline-block;
+            margin-bottom: auto;
+            /* Pushes content down */
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 4px 0;
         }
 
+        /* ACKNOWLEDGE BUTTON */
+        .acknowledge-btn {
+            margin-top: 1.25rem;
+            width: 100%;
+            font-size: 0.9rem;
+            padding: 10px 12px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            backdrop-filter: blur(4px);
+        }
+
+        .acknowledge-btn:hover {
+            background: #10b981;
+            /* Green */
+            border-color: #10b981;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        /* EMPTY STATE */
         .empty-state {
             grid-column: 1 / -1;
-            /* Span full width */
             height: 100%;
             display: flex;
             flex-direction: column;
@@ -150,11 +289,111 @@
             color: var(--text-muted);
         }
 
-        .empty-state-icon {
-            font-size: 8rem;
-            margin-bottom: var(--spacing-lg);
-            opacity: 0.5;
-            animation: float 3s ease-in-out infinite;
+        .digital-clock {
+            font-size: 6rem;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.9);
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 0;
+            line-height: 1;
+            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            letter-spacing: -2px;
+        }
+
+        .digital-date {
+            font-size: 1.25rem;
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 500;
+            margin-top: 0.5rem;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .waiting-image {
+            width: 100%;
+            max-width: 280px;
+            height: auto;
+            margin-bottom: 2rem;
+            opacity: 0.8;
+            filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3));
+            animation: float 6s ease-in-out infinite;
+        }
+
+        /* TICKER FOOTER */
+        .ticker-wrap {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            background: rgba(15, 23, 42, 0.85);
+            /* Darker backdrop */
+            backdrop-filter: blur(12px);
+            border-top: 1px solid var(--glass-border);
+            color: #fff;
+            overflow: hidden;
+            display: none;
+            /* Hidden default */
+            align-items: center;
+            z-index: 50;
+        }
+
+        .ticker {
+            display: inline-block;
+            white-space: nowrap;
+            padding-left: 100%;
+            /* Start off-screen */
+            animation: ticker 30s linear infinite;
+            /* Slightly faster default */
+            font-size: 1.75rem;
+            /* Larger text */
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            height: 100%;
+            line-height: 60px;
+            /* Vertically center */
+        }
+
+        .ticker-item {
+            display: inline-block;
+            padding: 0 2rem;
+        }
+
+        .ticker-item::after {
+            content: " • ";
+            opacity: 0.6;
+            margin-left: 2rem;
+            color: var(--accent-warning);
+        }
+
+        /* Merged Badges */
+        .merged-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-left: 8px;
+            text-transform: uppercase;
+            vertical-align: middle;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                box-shadow: 0 0 8px currentColor;
+            }
+
+            50% {
+                opacity: 0.5;
+                box-shadow: 0 0 0px currentColor;
+            }
         }
 
         @keyframes float {
@@ -165,127 +404,153 @@
             }
 
             50% {
-                transform: translateY(-20px);
+                transform: translateY(-10px);
             }
         }
 
-        .empty-state h2 {
-            font-size: 2.5rem;
-            color: var(--text-secondary);
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
-        .connection-status {
+        @keyframes ticker {
+            0% {
+                transform: translate3d(0, 0, 0);
+            }
+
+            100% {
+                transform: translate3d(-100%, 0, 0);
+            }
+        }
+
+        /* ===== CELEBRATION MODE ===== */
+        .celebration-overlay {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: var(--spacing-sm) var(--spacing-md);
-            border-radius: var(--radius-md);
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-xs);
-            z-index: 1000;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 9999;
+            overflow: hidden;
         }
 
-        .connection-status.connected {
-            background: rgba(34, 197, 94, 0.2);
-            border: 2px solid var(--success);
-            color: var(--success);
-        }
-
-        .connection-status.disconnected {
-            background: rgba(239, 68, 68, 0.2);
-            border: 2px solid var(--danger);
-            color: var(--danger);
-        }
-
-        .status-dot {
+        .confetti-piece {
+            position: absolute;
+            top: -20px;
             width: 10px;
             height: 10px;
-            border-radius: 50%;
-            background: currentColor;
-            animation: pulse 2s ease-in-out infinite;
+            opacity: 0;
+            animation: confettiFall linear forwards;
         }
 
-        .acknowledging {
-            opacity: 0.6;
+        @keyframes confettiFall {
+            0% {
+                opacity: 1;
+                top: -20px;
+                transform: rotate(0deg) scale(1);
+            }
+
+            80% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+                top: 105vh;
+                transform: rotate(720deg) scale(0.5);
+            }
+        }
+
+        .celebration-text {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 3.5rem;
+            font-weight: 900;
+            text-align: center;
             pointer-events: none;
+            z-index: 10000;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 60px rgba(255, 0, 0, 0.3);
+            animation: celebTextPop 7s ease-out forwards;
+            line-height: 1.3;
         }
 
-        @media (max-width: 1024px) {
-            .display-header h1 {
-                font-size: 2rem;
+        @keyframes celebTextPop {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0) rotate(-10deg);
             }
 
-            .student-name {
-                font-size: 2.5rem;
+            15% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.1) rotate(2deg);
             }
 
-            .waiting-badge {
-                font-size: 1.5rem;
+            25% {
+                transform: translate(-50%, -50%) scale(1) rotate(0deg);
             }
-        }
 
-        /* Merged class badge styles */
-        .merged-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            margin-left: 8px;
-            text-transform: uppercase;
-            vertical-align: middle;
-        }
+            75% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1) rotate(0deg);
+            }
 
-        .merged-badge.blue {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-
-        .merged-badge.green {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .merged-badge.red {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .merge-status {
-            font-size: 0.85rem;
-            margin-top: 4px;
-            opacity: 0.9;
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -60%) scale(0.8);
+            }
         }
     </style>
 </head>
 
 <body>
-    <div class="connection-status disconnected" id="connectionStatus">
-        <span class="status-dot"></span>
-        <span>Connecting...</span>
-    </div>
+    <!-- Celebration Overlay (confetti falls here) -->
+    <div class="celebration-overlay" id="celebrationOverlay"></div>
 
+    <!-- Body Content with New Hierarchy -->
     <div class="display-container">
         <div class="display-header">
             <div style="flex: 1; text-align: center;">
-                <img src="school-banner.png" alt="Corona Day Secondary School, Lekki"
-                    style="max-width: 95%; height: auto; margin-bottom: 6px;">
-                <h1>📺 Student Pickup Display</h1>
+                <h1 id="pageTitle">Student Pickup</h1>
                 <div class="class-info" id="classInfo">Loading...</div>
+            </div>
+
+            <!-- Live Badge (inside header) -->
+            <div class="live-badge" id="connectionStatus">
+                <span class="status-dot"></span>
+                <span id="connectionText">Initializing...</span>
             </div>
         </div>
 
         <div class="pickups-container" id="pickupsContainer">
+            <!-- Zero State with Clock -->
             <div class="empty-state">
-                <div class="empty-state-icon">✅</div>
-                <h2>No Pending Pickups</h2>
-                <p style="font-size: 1.5rem; margin-top: var(--spacing-md);">Waiting for notifications...</p>
+                <div class="digital-clock" id="digitalClock">--:--</div>
+                <div class="digital-date" id="digitalDate">...</div>
+
+                <img src="/images/waiting.png" alt="Waiting for students" class="waiting-image">
+
+                <h2 style="font-size: 1.5rem; font-weight: 600; color: #64748b; margin-top: 0;">No Pending Pickups</h2>
+                <p class="pulse-text" style="color: #94a3b8; font-size: 1rem; margin-top: 0.5rem;">Waiting for
+                    notifications...</p>
             </div>
         </div>
+    </div>
 
-
+    <!-- Ticker -->
+    <div class="ticker-wrap">
+        <div class="ticker">
+            <!-- Content injected via JS -->
+        </div>
     </div>
 
     <!-- Audio notification -->
@@ -295,17 +560,412 @@
             type="audio/wav">
     </audio>
 
+    <!-- Display Init: Public Mode (URL params) or Authenticated Mode -->
     <script>
+        (async function initDisplayMode() {
+            // Parse URL either as /display/SCHOOL_ID... or ?school=SCHOOL_ID...
+            const pathSegments = window.location.pathname.split('/').filter(s => s.length > 0);
+            const urlParams = new URLSearchParams(window.location.search);
+
+            let urlSchool = urlParams.get('school');
+            if (pathSegments[0] === 'display' && pathSegments.length >= 2) {
+                urlSchool = pathSegments[1];
+            }
+
+            // ============================
+            // PUBLIC MODE (No Auth Needed)
+            // ============================
+            if (urlSchool) {
+                console.log('📺 Public display mode — school:', urlSchool);
+                sessionStorage.setItem('schoolId', urlSchool);
+
+                // Fetch school data for branding and suspension check
+                try {
+                    const schoolDoc = await db.collection('schools').doc(urlSchool).get();
+                    if (schoolDoc.exists) {
+                        const schoolData = schoolDoc.data();
+
+                        // Check Suspension
+                        if (schoolData.status === 'suspended') {
+                            document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;font-family:sans-serif;color:#f8fafc;"><h1>⚠️ Suspended</h1><p>This school display has been suspended.</p></div>';
+                            return;
+                        }
+
+                        // Update title
+                        if (schoolData.name) {
+                            document.title = `${schoolData.name} - Display`;
+                        }
+
+                        // Apply Branding
+                        if (schoolData.subscriptionPlan === 'premium' && typeof window.applyBranding === 'function') {
+                            window.applyBranding(schoolData);
+                        }
+                        if (schoolData.branding && schoolData.branding.logoUrl) {
+                            const logo = document.getElementById('schoolLogo');
+                            if (logo) { logo.src = schoolData.branding.logoUrl; logo.style.display = 'block'; }
+                        }
+                        if (schoolData.branding && schoolData.branding.primaryColor) {
+                            const color = schoolData.branding.primaryColor;
+                            document.documentElement.style.setProperty('--primary', color);
+                            document.documentElement.style.setProperty('--teal', color);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Could not fetch school data:', e);
+                }
+
+                // Start display directly — no auth required
+                initDisplay();
+                return;
+            }
+
+            // ============================
+            // AUTHENTICATED MODE (Legacy)
+            // ============================
+            auth.onAuthStateChanged(async user => {
+                if (!user) {
+                    const saved = localStorage.getItem('displayCredentials');
+                    if (saved) {
+                        try {
+                            const creds = JSON.parse(saved);
+                            await auth.signInWithEmailAndPassword(creds.email, creds.password);
+                            return;
+                        } catch (e) {
+                            localStorage.removeItem('displayCredentials');
+                        }
+                    }
+                    sessionStorage.setItem('redirectAfterLogin', window.location.href);
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                try {
+                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    const userData = userDoc.data();
+
+                    if (userData && userData.schoolId) {
+                        sessionStorage.setItem('schoolId', userData.schoolId);
+
+                        db.collection('schools').doc(userData.schoolId).get().then(doc => {
+                            if (doc.exists) {
+                                const schoolData = doc.data();
+
+                                if (schoolData.status === 'suspended') {
+                                    document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;font-family:sans-serif;"><h1>⚠️ Suspended</h1><p>This school account has been suspended.</p></div>';
+                                    setTimeout(() => { auth.signOut(); window.location.href = 'login.html'; }, 3000);
+                                    return;
+                                }
+
+                                if (schoolData.name) document.title = `${schoolData.name} - Display`;
+
+                                if (schoolData.subscriptionPlan === 'premium') {
+                                    if (typeof window.applyBranding === 'function') window.applyBranding(schoolData);
+                                    if (schoolData.branding && schoolData.branding.logoUrl) {
+                                        const logo = document.getElementById('schoolLogo');
+                                        if (logo) { logo.src = schoolData.branding.logoUrl; logo.style.display = 'block'; }
+                                    }
+                                    if (schoolData.branding && schoolData.branding.primaryColor) {
+                                        const color = schoolData.branding.primaryColor;
+                                        document.documentElement.style.setProperty('--primary', color);
+                                        document.documentElement.style.setProperty('--teal', color);
+                                    }
+                                }
+                            }
+                        });
+
+                        if (userData.role === 'display' && userData.year && userData.class) {
+                            year = userData.year;
+                            className = userData.class;
+                        }
+
+                        initDisplay();
+                    } else {
+                        console.error("No school ID found for user");
+                    }
+                } catch (e) {
+                    console.error("Auth init failed", e);
+                }
+            });
+        })();
+    </script>
+
+    <script>
+        // Parse URL either as /display/SCHOOL_ID/YEAR/CLASS or ?school=SCHOOL_ID&year=YEAR&class=CLASS
+        const pathSegments = window.location.pathname.split('/').filter(s => s.length > 0);
         const urlParams = new URLSearchParams(window.location.search);
-        const year = parseInt(urlParams.get('year')) || 7;
-        const className = urlParams.get('class') || 'blue';
 
-        let ws = null;
+        let pathSchoolId, pathYear, pathClass;
+        if (pathSegments[0] === 'display' && pathSegments.length >= 4) {
+            pathSchoolId = pathSegments[1];
+            pathYear = pathSegments[2];
+            pathClass = decodeURIComponent(pathSegments[3]);
+        }
+
+        let year = parseInt(pathYear || urlParams.get('year')) || 7;
+        // Normalize Class Name: "blue" -> "Blue" to match Firestore data
+        let rawClass = pathClass || urlParams.get('class') || 'blue';
+        let className = rawClass.charAt(0).toUpperCase() + rawClass.slice(1).toLowerCase();
+
         let pickups = [];
-        let reconnectTimeout = null;
-        let activeMerges = [];  // Track merges where this class is host
+        let activeMerges = [];
+        let unsubscribePickups = null;
+        let unsubscribeMerges = null;
 
-        // Update class info (base, will be updated if merges exist)
+        function initDisplay() {
+            updateHeaderMergeStatus();
+            listenForMerges();
+            listenForPickups();
+            listenForAnnouncements();
+            startClock();
+            initCelebration(); // Check for celebration mode
+
+            setInterval(() => {
+                if (pickups.length > 0) renderPickups();
+            }, 10000);
+        }
+
+        // ===== CELEBRATION MODE =====
+        let celebrationInterval = null;
+        let celebrationConfig = null;
+
+        function initCelebration() {
+            const schoolId = sessionStorage.getItem('schoolId');
+            if (!schoolId) return;
+
+            // Listen for celebration config on the school document
+            db.collection('schools').doc(schoolId).onSnapshot(doc => {
+                if (!doc.exists) return;
+                const data = doc.data();
+
+                if (data.celebration && data.celebration.active) {
+                    // Check expiry
+                    if (data.celebration.expiresAt) {
+                        const expiry = data.celebration.expiresAt.seconds ? data.celebration.expiresAt.seconds * 1000 : data.celebration.expiresAt;
+                        if (Date.now() > expiry) {
+                            stopCelebration();
+                            return;
+                        }
+                    }
+                    celebrationConfig = data.celebration;
+                    startCelebration();
+                } else {
+                    stopCelebration();
+                }
+            });
+        }
+
+        function startCelebration() {
+            if (celebrationInterval) return; // Already running
+            console.log('🎉 Celebration mode ON:', celebrationConfig.message);
+
+            // Trigger first burst immediately
+            triggerConfettiBurst();
+
+            // Then repeat at intervals (default 45s)
+            const interval = (celebrationConfig.intervalSeconds || 45) * 1000;
+            celebrationInterval = setInterval(triggerConfettiBurst, interval);
+        }
+
+        function stopCelebration() {
+            if (celebrationInterval) {
+                clearInterval(celebrationInterval);
+                celebrationInterval = null;
+            }
+            celebrationConfig = null;
+        }
+
+        function triggerConfettiBurst() {
+            if (!celebrationConfig) return;
+
+            const overlay = document.getElementById('celebrationOverlay');
+            const color = celebrationConfig.color || '#ef4444'; // Default red
+            const message = celebrationConfig.message || '🏆 CHAMPIONS!';
+
+            // Confetti count — configurable from admin, default 500
+            const confettiCount = celebrationConfig.confettiCount || 500;
+            const shapes = ['circle', 'square', 'strip'];
+            // All house colors + gold & white for a rich celebration
+            const palette = [
+                '#ef4444', '#dc2626', '#b91c1c',  // Reds (Crane)
+                '#3b82f6', '#2563eb',              // Blues
+                '#22c55e', '#16a34a',              // Greens
+                '#eab308', '#facc15',              // Yellows
+                '#fbbf24', '#f59e0b', '#d97706',  // Golds (victory)
+                '#ffffff', '#fef3c7',              // White & cream
+                '#f43f5e', '#e11d48',              // Rose/crimson
+            ];
+            const fragment = document.createDocumentFragment();
+
+            for (let i = 0; i < confettiCount; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+
+                const shape = shapes[Math.floor(Math.random() * shapes.length)];
+                const size = 8 + Math.random() * 16;
+                const left = Math.random() * 100;
+                const duration = 2 + Math.random() * 3;
+                const delay = Math.random() * 2;
+
+                // Pick a random color from the palette
+                const pieceColor = palette[Math.floor(Math.random() * palette.length)];
+
+                piece.style.cssText = `
+                    left: ${left}%;
+                    width: ${shape === 'strip' ? size * 0.4 : size}px;
+                    height: ${shape === 'strip' ? size * 2 : size}px;
+                    background: ${pieceColor};
+                    border-radius: ${shape === 'circle' ? '50%' : (shape === 'strip' ? '2px' : '2px')};
+                    animation-duration: ${duration}s;
+                    animation-delay: ${delay}s;
+                    box-shadow: 0 0 8px ${pieceColor};
+                `;
+
+                fragment.appendChild(piece);
+            }
+
+            overlay.appendChild(fragment);
+
+            // Add floating text
+            const textEl = document.createElement('div');
+            textEl.className = 'celebration-text';
+            textEl.style.color = color;
+            textEl.innerHTML = message;
+            document.body.appendChild(textEl);
+
+            // Cleanup after animation completes
+            setTimeout(() => {
+                overlay.innerHTML = '';
+                if (textEl.parentNode) textEl.remove();
+            }, 8000);
+        }
+
+        // --- ANNOUNCEMENT LISTENER ---
+        // --- ANNOUNCEMENT LISTENER ---
+        // --- ANNOUNCEMENT LISTENER (Targeted) ---
+        let announcementCycleInterval = null;
+        let activeAnnouncements = [];
+        let currentAnnouncementIndex = 0;
+
+        function listenForAnnouncements() {
+            const schoolId = sessionStorage.getItem('schoolId');
+            if (!schoolId) return;
+
+            // Listen to ALL active announcements (low volume) and filter client-side
+            db.collection('schools').doc(schoolId).collection('announcements')
+                .where('active', '==', true)
+                .orderBy('createdAt', 'desc')
+                .onSnapshot(snapshot => {
+                    const myClass = `${year} ${className}`; // e.g. "7 Green" (Make sure this matches Admin format "Year 7 Green")
+                    // Wait, Admin saves "Year 7 Green". Display has year=7, className="Green".
+                    // Normalize to uppercase for comparison
+                    const myTargetString = `Year ${year} ${className}`.toLowerCase();
+                    console.log("[Announcements] Display looking for target:", myTargetString);
+
+                    const allMessages = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        console.log("[Announcements] Found announcement:", data.message, "Targets:", data.targets);
+
+                        // Case-insensitive matching
+                        const targetsLower = (data.targets || []).map(t => t.toLowerCase());
+
+                        // Filter: Include if Global (no targets) OR targets array includes my class string
+                        if (!data.targets || data.targets.length === 0 || targetsLower.includes(myTargetString)) {
+                            console.log("[Announcements] ✓ MATCHED!");
+                            allMessages.push(data.message);
+                        }
+                    });
+
+                    activeAnnouncements = allMessages;
+
+                    const tickerWrap = document.querySelector('.ticker-wrap');
+                    if (activeAnnouncements.length === 0) {
+                        if (tickerWrap) tickerWrap.style.display = 'none';
+                        if (announcementCycleInterval) clearInterval(announcementCycleInterval);
+                    } else {
+                        if (tickerWrap) tickerWrap.style.display = 'block';
+                        startAnnouncementCycling();
+                    }
+
+                }, err => console.error("Announcement listener error", err));
+        }
+
+        function startAnnouncementCycling() {
+            if (announcementCycleInterval) clearInterval(announcementCycleInterval);
+
+            // Show first immediately
+            currentAnnouncementIndex = 0;
+            updateTickerContent();
+
+            // Only cycle if multiple
+            if (activeAnnouncements.length > 1) {
+                announcementCycleInterval = setInterval(() => {
+                    currentAnnouncementIndex = (currentAnnouncementIndex + 1) % activeAnnouncements.length;
+                    updateTickerContent();
+                }, 8000); // 8 seconds per message (long enough for scroll)
+            }
+        }
+
+        function updateTickerContent() {
+            const ticker = document.querySelector('.ticker');
+            if (!ticker || activeAnnouncements.length === 0) return;
+
+            const message = activeAnnouncements[currentAnnouncementIndex];
+
+            // Re-inject HTML to restart CSS animation sometimes helps, or just replace text.
+            // Replacing innerHTML usually resets CSS animation if it was running.
+            let html = '';
+            const repeatCount = 4; // Ensure enough repeats to fill width
+            for (let i = 0; i < repeatCount; i++) {
+                html += `<div class="ticker-item">${escapeHtml(message)}</div>`;
+            }
+            ticker.innerHTML = html;
+        }
+
+        // --- CLOCK ---
+        function startClock() {
+            function update() {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                const dateString = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+                const clockEl = document.getElementById('digitalClock');
+                const dateEl = document.getElementById('digitalDate');
+
+                if (clockEl) clockEl.textContent = timeString;
+                if (dateEl) dateEl.textContent = dateString;
+            }
+            update();
+            setInterval(update, 1000);
+        }
+
+        // --- MERGE LISTENER ---
+        function listenForMerges() {
+            if (unsubscribeMerges) unsubscribeMerges();
+
+            const schoolId = sessionStorage.getItem('schoolId');
+            if (!schoolId) return;
+
+            // Listen for ALL merges for this school and filter client-side (case-insensitive)
+            unsubscribeMerges = db.collection('class_merges')
+                .where('schoolId', '==', schoolId)
+                .onSnapshot(snapshot => {
+                    // Filter client-side for case-insensitive matching
+                    activeMerges = snapshot.docs
+                        .map(doc => ({ id: doc.id, ...doc.data() }))
+                        .filter(m =>
+                            parseInt(m.host_year) === year &&
+                            (m.host_class || '').toLowerCase() === className.toLowerCase()
+                        );
+
+                    console.log('[Merge] Active merges for this display:', activeMerges);
+                    updateHeaderMergeStatus();
+                    // Refilter pickups because merge criteria might have changed
+                    filterAndRenderPickups(allPendingPickups);
+                }, err => console.error("Merge listener error", err));
+        }
+
+        // --- UPDATE HEADER ---
         function updateHeaderMergeStatus() {
             const classInfo = document.getElementById('classInfo');
             let headerText = `Year ${year} ${className.charAt(0).toUpperCase() + className.slice(1)}`;
@@ -320,124 +980,89 @@
             classInfo.innerHTML = headerText;
         }
 
-        // Load merges for this host on startup
-        async function loadHostMerges() {
-            try {
-                const res = await fetch(`/api/merges/host/${year}/${className}`);
-                activeMerges = await res.json();
-                updateHeaderMergeStatus();
-            } catch (e) {
-                console.error('Error loading merges:', e);
-            }
-        }
+        // --- PICKUP LISTENER ---
+        let allPendingPickups = []; // Store raw data to refilter
 
-        updateHeaderMergeStatus();
+        function listenForPickups() {
+            updateConnectionStatus(true); // Assume connected if listener starts
 
-        // WebSocket connection
-        function connectWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${window.location.host}?token=STAFF_WX_TOKEN_2025`);
+            const schoolId = sessionStorage.getItem('schoolId');
+            if (!schoolId) return;
 
-            ws.onopen = () => {
-                console.log('WebSocket connected');
-                updateConnectionStatus(true);
+            unsubscribePickups = db.collection('pickups')
+                .where('schoolId', '==', schoolId)
+                .where('status', '==', 'pending')
+                .onSnapshot(snapshot => {
+                    const changes = snapshot.docChanges();
+                    let hasNewRelevantPickup = false;
 
-                // Subscribe to this class
-                ws.send(JSON.stringify({
-                    type: 'subscribe',
-                    year: year,
-                    className: className
-                }));
-            };
+                    allPendingPickups = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
+                    // Check for new relevant pickups for Sound Notification
+                    changes.forEach(change => {
+                        if (change.type === 'added') {
+                            const p = change.doc.data();
+                            if (isPickupRelevant(p)) {
+                                hasNewRelevantPickup = true;
+                            }
+                        }
+                    });
 
-                switch (data.type) {
-                    case 'initial':
-                        pickups = data.pickups;
-                        renderPickups();
-                        break;
-
-                    case 'new_pickup':
-                        pickups.push(data.pickup);
-                        renderPickups();
+                    if (hasNewRelevantPickup) {
                         playNotificationSound();
-                        break;
+                    }
 
-                    case 'pickup_acknowledged':
-                        pickups = pickups.filter(p => p.id !== data.pickupId);
-                        renderPickups();
-                        break;
+                    filterAndRenderPickups(allPendingPickups);
 
-                    case 'merge_activated':
-                        // A new class has been merged into us
-                        activeMerges.push(data.merge);
-                        updateHeaderMergeStatus();
-                        break;
-
-                    case 'merge_deactivated':
-                        // A merge has been removed
-                        activeMerges = activeMerges.filter(m => m.id !== data.mergeId);
-                        updateHeaderMergeStatus();
-                        break;
-
-                    case 'heartbeat':
-                        // Keep connection alive
-                        break;
-                }
-            };
-
-            ws.onclose = () => {
-                console.log('WebSocket disconnected');
-                updateConnectionStatus(false);
-
-                // Attempt to reconnect after 3 seconds
-                reconnectTimeout = setTimeout(connectWebSocket, 3000);
-            };
-
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-            };
+                }, err => {
+                    console.error("Pickup listener error", err);
+                    updateConnectionStatus(false);
+                });
         }
 
-        // Update connection status
-        function updateConnectionStatus(connected) {
-            const statusEl = document.getElementById('connectionStatus');
-            if (connected) {
-                statusEl.className = 'connection-status connected';
-                statusEl.innerHTML = '<span class="status-dot"></span><span>Connected</span>';
-            } else {
-                statusEl.className = 'connection-status disconnected';
-                statusEl.innerHTML = '<span class="status-dot"></span><span>Reconnecting...</span>';
+        function isPickupRelevant(p) {
+            // Helper for case-insensitive comparison
+            const matchesClass = (a, b) => (a || '').toLowerCase() === (b || '').toLowerCase();
+
+            // My Class?
+            if (parseInt(p.year) === year && matchesClass(p.class, className)) {
+                return true;
             }
+
+            // Merged Class?
+            const isMerged = activeMerges.some(m =>
+                parseInt(m.source_year) === parseInt(p.year) && matchesClass(m.source_class, p.class)
+            );
+            if (isMerged) return true;
+
+            return false;
         }
 
-        // Play notification sound
-        function playNotificationSound() {
-            const audio = document.getElementById('notificationSound');
-            audio.play().catch(e => console.log('Audio play failed:', e));
+        function filterAndRenderPickups(allData) {
+            pickups = allData.filter(p => isPickupRelevant(p));
+            renderPickups();
         }
 
-        // Render pickups
+        // --- RENDER LOGIC (Mostly Unchanged) ---
         function renderPickups() {
             const container = document.getElementById('pickupsContainer');
-
-            // Set count for adaptive CSS
             container.dataset.count = pickups.length;
 
             if (pickups.length === 0) {
                 container.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-state-icon">✅</div>
-            <h2>No Pending Pickups</h2>
-            <p style="font-size: 1.5rem; margin-top: var(--spacing-md);">Waiting for notifications...</p>
-          </div>
-        `;
+                <div class="empty-state">
+                    <div class="digital-clock" id="digitalClock">--:--</div>
+                    <div class="digital-date" id="digitalDate">...</div>
+                    <img src="/images/waiting.png" alt="Waiting for students" class="waiting-image">
+                    <h2 style="font-size: 1.5rem; font-weight: 600; color: #64748b; margin-top: 0;">No Pending Pickups</h2>
+                    <p class="pulse-text" style="color: #94a3b8; font-size: 1rem; margin-top: 0.5rem;">Waiting for notifications...</p>
+                </div>
+                `;
+                startClock(); // Re-bind clock if DOM regenerated
                 return;
             }
 
-            container.innerHTML = pickups.map(pickup => {
+            container.innerHTML = pickups.map((pickup, index) => {
                 const waitTime = Math.floor((Date.now() - pickup.timestamp) / 1000 / 60);
                 let statusClass = 'new';
                 let statusText = `${waitTime} min${waitTime !== 1 ? 's' : ''}`;
@@ -452,68 +1077,84 @@
                     statusText = `🆕 ${waitTime} min${waitTime !== 1 ? 's' : ''}`;
                 }
 
-                // Check if this is a merged student
+                // Check if this is a merged student (Add merged badge logic if needed)
                 let mergedBadge = '';
-                if (pickup.merged_from) {
-                    const mergedClass = pickup.merged_from.class;
-                    mergedBadge = `<span class="merged-badge ${mergedClass}">Y${pickup.merged_from.year} ${mergedClass}</span>`;
+                const isMerged = activeMerges.find(m =>
+                    parseInt(m.source_year) === parseInt(pickup.year) &&
+                    (m.source_class || '').toLowerCase() === (pickup.class || '').toLowerCase()
+                );
+
+                if (isMerged) {
+                    // Cleaner badge for glass UI
+                    mergedBadge = `<span class="merged-badge">Y${pickup.year} ${pickup.class}</span>`;
                 }
 
                 return `
-          <div class="pickup-card ${statusClass}" id="pickup-${pickup.id}">
-            <div class="pickup-header">
-              <h2 class="student-name">${pickup.student_name}${mergedBadge}</h2>
-              <div class="waiting-badge ${statusClass}">${statusText}</div>
+    <div class="pickup-card ${statusClass}" id="pickup-${pickup.id}" style="animation-delay: ${index * 0.1}s">
+        <div class="pickup-header">
+            <h2 class="student-name">${escapeHtml(pickup.student_name)}${mergedBadge}</h2>
+            <div class="waiting-badge" style="color:${statusClass === 'danger' ? '#ef4444' : (statusClass === 'warning' ? '#f59e0b' : '#94a3b8')}">
+                ${statusText}
             </div>
-            <button class="btn btn-success btn-xl acknowledge-btn" onclick="acknowledgePickup('${pickup.id}')">
-              ✅ Student Sent Down
-            </button>
-          </div>
-        `;
+        </div>
+        <button class="acknowledge-btn" onclick="acknowledgePickup('${pickup.id}')">
+            ✅ ACKNOWLEDGED
+        </button>
+    </div>
+    `;
             }).join('');
         }
 
-        // Acknowledge pickup
         async function acknowledgePickup(pickupId) {
             const card = document.getElementById(`pickup-${pickupId}`);
-            if (!card) return;
+            if (card) card.classList.add('acknowledging');
 
-            card.classList.add('acknowledging');
-
-            // Force Mock Behavior for local testing
-            setTimeout(() => {
-                pickups = pickups.filter(p => String(p.id) !== String(pickupId));
-                renderPickups();
-            }, 300);
-
-            // Try to notify server (silently fail if offline)
             try {
-                fetch(`/api/pickups/${pickupId}/acknowledge`, { method: 'POST' }).catch(() => { });
-            } catch (e) { }
+                // Update Firestore
+                await db.collection('pickups').doc(pickupId).update({
+                    status: 'acknowledged',
+                    acknowledged_at: Date.now()
+                });
+                // Succeeded - UI will update via snapshot listener automatically
+            } catch (e) {
+                console.error("Ack failed", e);
+                alert("Failed to acknowledge. Check connection.");
+                if (card) card.classList.remove('acknowledging');
+            }
         }
 
-        // Update waiting times every 30 seconds
-        setInterval(() => {
-            if (pickups.length > 0) {
-                renderPickups();
-            }
-        }, 30000);
+        // Helper
+        function escapeHtml(text) {
+            if (!text) return text;
+            return text.toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
 
-        // Initialize
-        loadHostMerges();
-        connectWebSocket();
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('connectionText');
 
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', () => {
-            if (ws) {
-                ws.close();
+            if (connected) {
+                statusEl.className = 'live-badge';
+                statusText.textContent = 'Live System';
+            } else {
+                statusEl.className = 'live-badge disconnected';
+                statusText.textContent = 'Reconnecting...';
             }
-            if (reconnectTimeout) {
-                clearTimeout(reconnectTimeout);
-            }
-        });
+        }
 
+        function playNotificationSound() {
+            const audio = document.getElementById('notificationSound');
+            audio.play().catch(e => console.log('Audio play failed:', e));
+        }
+
+        // Removed direct init calls, now called by Auth Guard
     </script>
+
 </body>
 
 </html>

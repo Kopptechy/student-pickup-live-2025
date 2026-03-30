@@ -1,0 +1,201 @@
+{
+    "indexes": [
+        {
+            "collectionGroup": "pickups",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "schoolId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "status",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "timestamp",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "announcements",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "active",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "pickups",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "status",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "timestamp",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "students",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "year",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "name",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "classes",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "year",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "name",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "pickups",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "schoolId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "status",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "timestamp",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "parent_invites",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "schoolId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "status",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "created_at",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "arrivals",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "schoolId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "date",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "arrivals",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "schoolId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "date",
+                    "arrayConfig": "CONTAINS"
+                },
+                {
+                    "fieldPath": "isLate",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "arrivals",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "schoolId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "studentId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "date",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "departures",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "schoolId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "date",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "busId",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "home_dropoffs",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "schoolId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "date",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "busId",
+                    "order": "ASCENDING"
+                }
+            ]
+        }
+    ],
+    "fieldOverrides": []
+}

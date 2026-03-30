@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SurePickup - Parent Registration">
+    <title>Parent Registration - SurePickup</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap"
+        rel="stylesheet">
+    <!-- Reuse Admin Signup Styles -> Matches Brand -->
+    <style>
+        :root {
+            --coral: #E07A5F;
+            --coral-dark: #C4563A;
+            --teal: #3D5A5B;
+            --teal-light: #5B8A8B;
+            --cream: #F4F1DE;
+            --cream-dark: #E8E4CC;
+            --charcoal: #2B2D42;
+            --sage: #81B29A;
+            --sand: #F2CC8F;
+            --bg-main: #FDFCF7;
+            --text-dark: #2B2D42;
+            --text-muted: #6B6E7B;
+            --error: #E53935;
+            --success: #43A047;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: linear-gradient(135deg, var(--bg-main) 0%, #e0f2f1 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .signup-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 3rem;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--teal);
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo span {
+            color: var(--coral);
+        }
+
+        .tagline {
+            text-align: center;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--charcoal);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid var(--cream-dark);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--teal);
+        }
+
+        .form-group input:disabled {
+            background: #f3f4f6;
+            color: #9ca3af;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: var(--teal);
+            color: white;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: var(--teal-light);
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .message.success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        /* Children List Preview */
+        .children-preview {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .child-badge {
+            display: inline-block;
+            background: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: #0369a1;
+            font-weight: 600;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        #codeForm {
+            text-align: center;
+        }
+
+        #manualCodeInput {
+            text-align: center;
+            letter-spacing: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="signup-container">
+
+        <!-- HEADER -->
+        <div class="logo">Sure<span>Pickup</span></div>
+        <p class="tagline">Setup your parent account</p>
+
+        <!-- STATES -->
+
+        <!-- 1. LOADING -->
+        <div id="loadingState" style="text-align:center;">
+            <p>Verifying invitation...</p>
+        </div>
+
+        <!-- 2. MANUAL CODE ENTRY (If URL param missing) -->
+        <div id="codeEntryState" style="display:none;">
+            <p style="text-align:center; margin-bottom:1rem;">Please enter your 6-character Invite Code found in your
+                email.</p>
+            <input type="text" id="manualCodeInput" class="form-group" placeholder="ABC123" maxlength="6">
+            <button class="btn" onclick="validateManualCode()">Validate Code</button>
+        </div>
+
+        <!-- 3. SIGNUP FORM -->
+        <div id="signupForm" style="display:none;">
+
+            <div class="children-preview">
+                <div
+                    style="font-size:0.8rem; color:#64748b; margin-bottom:5px; text-transform:uppercase; letter-spacing:1px; font-weight:700;">
+                    Linking Children:</div>
+                <div id="studentList"></div>
+            </div>
+
+            <div class="message" id="messageBox"></div>
+
+            <form id="registrationForm">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="email" required>
+                    <small style="color:#64748b; display:none;" id="emailLockMsg">Locked to invite email</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Your Name</label>
+                    <input type="text" id="parentName" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Profile Photo (For Identification)</label>
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        <div id="photoPreview"
+                            style="width:60px; height:60px; border-radius:50%; background:#e2e8f0; display:flex; align-items:center; justify-content:center; overflow:hidden; border:2px solid #cbd5e1;">
+                            <span style="font-size:1.5rem; color:#94a3b8;">👤</span>
+                        </div>
+                        <div>
+                            <input type="file" id="photoInput" accept="image/*" style="display:none;"
+                                onchange="previewPhoto(this)">
+                            <button type="button" class="btn"
+                                style="padding:0.5rem 1rem; width:auto; font-size:0.9rem; background:#64748b;"
+                                onclick="document.getElementById('photoInput').click()">Upload Photo</button>
+                            <div style="font-size:0.75rem; color:#64748b; margin-top:5px;">Visible to teachers on pickup
+                                receipt</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Create Password</label>
+                    <input type="password" id="password" required minlength="6" placeholder="Min. 6 characters">
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <input type="password" id="confirmPassword" required>
+                </div>
+
+                <button type="submit" class="btn" id="submitBtn">Create Account</button>
+            </form>
+        </div>
+
+        <!-- 4. SUCCESS -->
+        <div id="successState" style="display:none; text-align:center;">
+            <div style="font-size:4rem; margin-bottom:1rem;">🎉</div>
+            <h2 style="color:var(--teal); margin-bottom:1rem;">All Set!</h2>
+            <p style="color:var(--text-muted); margin-bottom:2rem;">Your account has been created and linked to your
+                children.</p>
+            <a href="login.html?role=parent" class="btn" style="text-decoration:none;">Go to Login</a>
+        </div>
+
+        <!-- 5. ERROR -->
+        <div id="errorState" style="display:none; text-align:center;">
+            <h2 style="color:var(--error); margin-bottom:1rem;">Invalid Invite</h2>
+            <p id="errorMsg" style="color:var(--text-muted); margin-bottom:2rem;">...</p>
+            <button class="btn" onclick="location.href='parent-signup.html'">Try Different Code</button>
+        </div>
+
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+    <script src="/firebase-config.js"></script>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        let inviteCode = urlParams.get('code');
+        let inviteData = null;
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            if (inviteCode) {
+                validateInvite(inviteCode);
+            } else {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('codeEntryState').style.display = 'block';
+            }
+        });
+
+        function validateManualCode() {
+            const code = document.getElementById('manualCodeInput').value.trim().toUpperCase();
+            if (code.length < 3) return alert("Please enter a valid code");
+            validateInvite(code);
+        }
+
+        async function validateInvite(code) {
+            document.getElementById('codeEntryState').style.display = 'none';
+            document.getElementById('loadingState').style.display = 'block';
+            inviteCode = code;
+
+            try {
+                const doc = await db.collection('parent_invites').doc(code).get();
+
+                if (!doc.exists) {
+                    throw new Error("Invite code not found.");
+                }
+
+                inviteData = doc.data();
+
+                // Checks
+                if (inviteData.status === 'used') throw new Error("This invite code has already been used.");
+                if (Date.now() > inviteData.expires_at) throw new Error("This invite code has expired.");
+
+                // Valid! Show Form
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('signupForm').style.display = 'block';
+
+                // Pre-fill
+                if (inviteData.parent_email) {
+                    document.getElementById('email').value = inviteData.parent_email;
+                    document.getElementById('email').disabled = true;
+                    document.getElementById('emailLockMsg').style.display = 'block';
+                }
+
+                if (inviteData.parent_name) {
+                    document.getElementById('parentName').value = inviteData.parent_name;
+                }
+
+                // Show Children (Checkboxes)
+                const list = document.getElementById('studentList');
+                if (inviteData.student_snapshots) {
+                    list.style.display = 'flex';
+                    list.style.flexDirection = 'column';
+                    list.style.gap = '8px';
+
+                    list.innerHTML = inviteData.student_snapshots.map(s => `
+                        <label style="display:flex; align-items:center; background:white; padding:10px; border-radius:8px; border:1px solid #e2e8f0; cursor:pointer; transition:all 0.2s;">
+                            <input type="checkbox" name="child_select" value="${s.id}" checked style="width:1.2rem; height:1.2rem; margin-right:12px; cursor:pointer;">
+                            <div style="flex:1;">
+                                <div style="font-weight:600; color:#334155;">${s.name}</div>
+                                <div style="font-size:0.8rem; color:#64748b;">Year ${s.year} ${s.class}</div>
+                            </div>
+                        </label>
+                    `).join('');
+                }
+
+            } catch (e) {
+                showError(e.message);
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('errorState').style.display = 'block';
+            document.getElementById('errorMsg').textContent = msg;
+        }
+
+        function previewPhoto(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const preview = document.getElementById('photoPreview');
+                    preview.innerHTML = `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover;">`;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // SUBMIT
+        document.getElementById('registrationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const password = document.getElementById('password').value;
+            const confirm = document.getElementById('confirmPassword').value;
+            const name = document.getElementById('parentName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const photoInput = document.getElementById('photoInput');
+
+            if (password !== confirm) {
+                return alert("Passwords do not match");
+            }
+
+            // Get Selected Children
+            const selectedCheckboxes = document.querySelectorAll('input[name="child_select"]:checked');
+            const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+
+            if (selectedIds.length === 0) {
+                return alert("Please select at least one child to link to your account.");
+            }
+
+            btn.disabled = true;
+            btn.textContent = "Creating Account...";
+
+            try {
+                // 1. Create Auth User FIRST
+                const cred = await auth.createUserWithEmailAndPassword(email, password);
+                const user = cred.user;
+
+                // 2. Upload Photo (if selected)
+                let photoURL = null;
+                if (photoInput.files && photoInput.files[0]) {
+                    btn.textContent = "Uploading Photo...";
+                    const file = photoInput.files[0];
+                    const storageRef = firebase.storage().ref(`parent_photos/${user.uid}`);
+                    await storageRef.put(file);
+                    photoURL = await storageRef.getDownloadURL();
+                }
+
+                await user.updateProfile({
+                    displayName: name,
+                    photoURL: photoURL
+                });
+
+                // 3. Get SchoolId
+                const firstStudentId = selectedIds[0];
+                const sDoc = await db.collection('students').doc(firstStudentId).get();
+                if (!sDoc.exists) throw new Error("Linked student record not found.");
+
+                const schoolId = sDoc.data().schoolId;
+
+                // 4. Create User Profile
+                await db.collection('users').doc(user.uid).set({
+                    email: email,
+                    displayName: name,
+                    parent_name: name,
+                    photo_url: photoURL, // Save to Firestore explicitly
+                    designation: inviteData.role || 'Parent',
+                    role: 'parent',
+                    gender: inviteData.gender || 'unknown',
+                    schoolId: schoolId,
+                    children: selectedIds,
+                    family_name: inviteData.family_name,
+                    created_at: Date.now(),
+                    invite_code: inviteCode
+                });
+
+                // 5. Update Invite & Commit
+                const batch = db.batch();
+
+                const inviteRef = db.collection('parent_invites').doc(inviteCode);
+                batch.update(inviteRef, {
+                    status: 'used',
+                    used_at: Date.now(),
+                    user_id: user.uid,
+                    actually_linked_children: selectedIds
+                });
+
+                await batch.commit();
+
+                // Success
+                document.getElementById('signupForm').style.display = 'none';
+                document.getElementById('successState').style.display = 'block';
+                await auth.signOut();
+
+            } catch (e) {
+                console.error(e);
+                alert("Registration Failed: " + e.message);
+                btn.disabled = false;
+                btn.textContent = "Create Account";
+            }
+        });
+    </script>
+</body>
+
+</html>

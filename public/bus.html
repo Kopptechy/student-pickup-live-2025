@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="description" content="SurePickup - Bus Staff Portal">
+    <title>Bus Portal - SurePickup</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="icon" type="image/png" href="images/logo.png">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --success: #16a34a;
+            --success-bg: #dcfce7;
+            --warning: #f59e0b;
+            --warning-bg: #fef3c7;
+            --danger: #ef4444;
+            --danger-bg: #fee2e2;
+            --bg: #0f172a;
+            --bg-card: #1e293b;
+            --bg-card-hover: #334155;
+            --border: #334155;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --text-secondary: #cbd5e1;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            padding: 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header .logout-btn {
+            background: rgba(255, 255, 255, 0.15);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .bus-info {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bus-info .bus-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .bus-info .bus-plate {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .mode-tabs {
+            display: flex;
+            gap: 0;
+            margin: 0 1rem;
+            background: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .mode-tab {
+            flex: 1;
+            padding: 0.75rem;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .mode-tab.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .mode-panel {
+            display: none;
+            padding: 1rem;
+        }
+
+        .mode-panel.active {
+            display: block;
+        }
+
+        .student-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.85rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .student-card:active {
+            transform: scale(0.98);
+        }
+
+        .student-card.checked {
+            border-color: var(--success);
+            background: rgba(22, 163, 74, 0.1);
+        }
+
+        .student-card.dropped-off {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+            opacity: 0.6;
+        }
+
+        .student-card.excluded {
+            opacity: 0.4;
+            border-color: var(--border);
+            text-decoration: line-through;
+        }
+
+        .student-card .checkbox {
+            width: 28px;
+            height: 28px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 1.1rem;
+            transition: all 0.15s;
+        }
+
+        .student-card.checked .checkbox {
+            background: var(--success);
+            border-color: var(--success);
+            color: white;
+        }
+
+        .student-card .info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .student-card .name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .student-card .detail {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .counter {
+            text-align: center;
+            padding: 0.75rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .counter strong {
+            color: var(--primary);
+            font-size: 1.2rem;
+        }
+
+        .action-btn {
+            display: block;
+            width: calc(100% - 2rem);
+            margin: 1rem;
+            padding: 1rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            color: white;
+            transition: all 0.2s;
+        }
+
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .action-btn.morning {
+            background: var(--success);
+        }
+
+        .action-btn.afternoon {
+            background: var(--primary);
+        }
+
+        .action-btn.dropoff {
+            background: var(--warning);
+            color: #1e293b;
+        }
+
+        .status-banner {
+            margin: 0.5rem 1rem;
+            padding: 0.75rem;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .status-banner.success {
+            background: var(--success-bg);
+            color: #166534;
+        }
+
+        .status-banner.warning {
+            background: var(--warning-bg);
+            color: #92400e;
+        }
+
+        .status-banner.info {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+        }
+
+        .loading-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 50vh;
+            gap: 1rem;
+        }
+
+        .loading-screen .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state .icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            margin-bottom: 0.25rem;
+        }
+
+        .section-header h3 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            color: var(--text);
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            font-weight: 600;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>🚌 <span id="headerBusName">Bus Portal</span></h1>
+        <button class="logout-btn" onclick="logout()">Sign Out</button>
+    </div>
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="spinner"></div>
+        <p style="color:var(--text-muted);">Loading your bus...</p>
+    </div>
+
+    <!-- Main Content (hidden until loaded) -->
+    <div id="mainContent" style="display:none;">
+        <div class="bus-info">
+            <div>
+                <div class="bus-name" id="busNameDisplay">—</div>
+                <div class="bus-plate" id="busPlateDisplay">—</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:0.85rem; color:var(--text-muted);" id="busDateDisplay"></div>
+                <div style="font-size:0.8rem; color:var(--text-muted);" id="busStaffDisplay"></div>
+            </div>
+        </div>
+
+        <!-- Mode Tabs -->
+        <div class="mode-tabs">
+            <button class="mode-tab active" id="tab-morning" onclick="switchMode('morning')">☀️ Morning</button>
+            <button class="mode-tab" id="tab-afternoon" onclick="switchMode('afternoon')">🌤️ Afternoon</button>
+            <button class="mode-tab" id="tab-trip" onclick="switchMode('trip')">🏠 Drop-off</button>
+        </div>
+
+        <!-- MORNING MODE -->
+        <div class="mode-panel active" id="panel-morning">
+            <div class="counter">
+                <strong id="morningCheckedCount">0</strong> of <span id="morningTotalCount">0</span> present
+            </div>
+            <div id="morningStudentList"></div>
+            <button class="action-btn morning" id="morningSubmitBtn" onclick="submitMorningArrivals()">
+                ✅ Mark Arrived at School
+            </button>
+            <div id="morningStatus"></div>
+        </div>
+
+        <!-- AFTERNOON MODE -->
+        <div class="mode-panel" id="panel-afternoon">
+            <div class="counter">
+                <strong id="afternoonCount">0</strong> students for departure
+            </div>
+            <div id="afternoonExcludedNote"></div>
+            <div id="afternoonStudentList"></div>
+            <button class="action-btn afternoon" id="afternoonSubmitBtn" onclick="submitAfternoonDeparture()">
+                🚌 Confirm Departure
+            </button>
+            <div id="afternoonStatus"></div>
+        </div>
+
+        <!-- ACTIVE TRIP / HOME DROP-OFF MODE -->
+        <div class="mode-panel" id="panel-trip">
+            <div class="counter">
+                <strong id="tripRemainingCount">0</strong> students remaining on bus
+            </div>
+            <div id="tripStudentList"></div>
+            <button class="action-btn dropoff" id="tripDropoffBtn" onclick="confirmHomeDropoff()">
+                🏠 Confirm Home Drop-Off
+            </button>
+            <div id="tripStatus"></div>
+        </div>
+    </div>
+
+    <!-- Error Screen -->
+    <div id="errorScreen" style="display:none;">
+        <div class="empty-state">
+            <div class="icon">⚠️</div>
+            <p id="errorMessage">Something went wrong</p>
+            <button class="action-btn afternoon" onclick="window.location.reload()"
+                style="width:auto; display:inline-block; padding:0.75rem 2rem; margin-top:1rem;">Retry</button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+
+    <script>
+        // State
+        let currentBus = null;
+        let busStudents = [];
+        let morningChecked = new Set();
+        let afternoonStudents = [];
+        let afternoonChecked = new Set();
+        let tripStudents = [];
+        let tripChecked = new Set();
+
+        // Today's date
+        function getTodayDate() {
+            const now = new Date();
+            return now.getFullYear() + '-' +
+                String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                String(now.getDate()).padStart(2, '0');
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        function logout() {
+            auth.signOut().then(() => window.location.href = 'login.html');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        // Auth check
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            try {
+                // Get user doc to find busId
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (!userDoc.exists || userDoc.data().role !== 'bus_staff') {
+                    showError('Access denied. This page is for bus staff only.');
+                    return;
+                }
+
+                const userData = userDoc.data();
+                sessionStorage.setItem('schoolId', userData.schoolId || '');
+                sessionStorage.setItem('userId', user.uid);
+
+                const busId = userData.busId;
+                if (!busId) {
+                    showError('No bus assigned to your account. Contact admin.');
+                    return;
+                }
+
+                // Load bus data
+                const busDoc = await db.collection('buses').doc(busId).get();
+                if (!busDoc.exists) {
+                    showError('Bus not found. Contact admin.');
+                    return;
+                }
+
+                currentBus = { id: busDoc.id, ...busDoc.data() };
+
+                // Load assigned students
+                if (currentBus.studentIds && currentBus.studentIds.length > 0) {
+                    // Firestore 'in' supports up to 30 in newer SDKs, batch if needed
+                    const batches = [];
+                    const ids = currentBus.studentIds;
+                    for (let i = 0; i < ids.length; i += 10) {
+                        const batch = ids.slice(i, i + 10);
+                        batches.push(
+                            db.collection('students')
+                                .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+                                .get()
+                        );
+                    }
+                    const results = await Promise.all(batches);
+                    busStudents = results.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                    // Sort by name
+                    busStudents.sort((a, b) => a.name.localeCompare(b.name));
+                }
+
+                // Initialize UI
+                initUI(userData);
+
+            } catch (err) {
+                console.error('Init error:', err);
+                showError('Error loading bus data: ' + err.message);
+            }
+        });
+
+        function showError(msg) {
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'none';
+            document.getElementById('errorScreen').style.display = 'block';
+            document.getElementById('errorMessage').textContent = msg;
+        }
+
+        function initUI(userData) {
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+
+            document.getElementById('headerBusName').textContent = currentBus.name;
+            document.getElementById('busNameDisplay').textContent = currentBus.name;
+            document.getElementById('busPlateDisplay').textContent = currentBus.plateNumber || 'No plate';
+            document.getElementById('busDateDisplay').textContent = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            document.getElementById('busStaffDisplay').textContent = userData.displayName || '';
+
+            // Initialize morning mode
+            initMorningMode();
+        }
+
+        // MODE SWITCHING
+        function switchMode(mode) {
+            document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('tab-' + mode).classList.add('active');
+            document.getElementById('panel-' + mode).classList.add('active');
+
+            if (mode === 'morning') initMorningMode();
+            else if (mode === 'afternoon') initAfternoonMode();
+            else if (mode === 'trip') initTripMode();
+        }
+
+        // =====================
+        // MORNING MODE
+        // =====================
+        function initMorningMode() {
+            morningChecked = new Set(busStudents.map(s => s.id)); // All pre-checked
+            renderMorningList();
+        }
+
+        function renderMorningList() {
+            const container = document.getElementById('morningStudentList');
+            document.getElementById('morningCheckedCount').textContent = morningChecked.size;
+            document.getElementById('morningTotalCount').textContent = busStudents.length;
+
+            if (busStudents.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">👥</div><p>No students assigned to this bus</p></div>';
+                return;
+            }
+
+            // Group by year
+            const grouped = {};
+            busStudents.forEach(s => {
+                const key = `Year ${s.year}`;
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(s);
+            });
+
+            let html = '';
+            Object.keys(grouped).sort().forEach(year => {
+                html += `<div class="section-header"><h3>${year}</h3></div>`;
+                grouped[year].forEach(s => {
+                    const checked = morningChecked.has(s.id);
+                    html += `
+                        <div class="student-card ${checked ? 'checked' : ''}" onclick="toggleMorning('${s.id}')">
+                            <div class="checkbox">${checked ? '✓' : ''}</div>
+                            <div class="info">
+                                <div class="name">${escapeHtml(s.name)}</div>
+                                <div class="detail">${s.class} • ${s.bookRentalNumber ? '#' + s.bookRentalNumber : ''}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+            container.innerHTML = html;
+        }
+
+        function toggleMorning(id) {
+            if (morningChecked.has(id)) morningChecked.delete(id);
+            else morningChecked.add(id);
+            renderMorningList();
+        }
+
+        async function submitMorningArrivals() {
+            if (morningChecked.size === 0) {
+                showToast('No students selected');
+                return;
+            }
+
+            const btn = document.getElementById('morningSubmitBtn');
+            btn.disabled = true;
+            btn.textContent = 'Logging arrivals...';
+            const schoolId = sessionStorage.getItem('schoolId');
+            const today = getTodayDate();
+
+            // Calculate late status
+            let isLate = false;
+            let minutesLate = 0;
+            try {
+                const schoolDoc = await db.collection('schools').doc(schoolId).get();
+                if (schoolDoc.exists) {
+                    const settings = schoolDoc.data().dropOffSettings;
+                    if (settings && settings.lateTrackingEnabled !== false && settings.startTime) {
+                        const now = new Date();
+                        const [startH, startM] = settings.startTime.split(':').map(Number);
+                        const grace = settings.gracePeriodMinutes || 0;
+                        const cutoff = new Date(now);
+                        cutoff.setHours(startH, startM + grace, 0, 0);
+                        if (now > cutoff) {
+                            isLate = true;
+                            minutesLate = Math.round((now - cutoff) / 60000);
+                        }
+                    }
+                }
+            } catch (e) { console.warn('Could not fetch late settings', e); }
+
+            try {
+                const batch = db.batch();
+                let count = 0;
+
+                for (const studentId of morningChecked) {
+                    const student = busStudents.find(s => s.id === studentId);
+                    if (!student) continue;
+
+                    // Check if already arrived today
+                    const existing = await db.collection('arrivals')
+                        .where('schoolId', '==', schoolId)
+                        .where('studentId', '==', studentId)
+                        .where('date', '==', today)
+                        .get();
+
+                    if (existing.empty) {
+                        const ref = db.collection('arrivals').doc();
+                        batch.set(ref, {
+                            studentId: studentId,
+                            bookRentalNumber: student.bookRentalNumber || null,
+                            studentName: student.name,
+                            year: student.year,
+                            class: student.class,
+                            schoolId: schoolId,
+                            arrivalTime: firebase.firestore.FieldValue.serverTimestamp(),
+                            method: 'bus',
+                            busId: currentBus.id,
+                            busName: currentBus.name,
+                            isLate: isLate,
+                            minutesLate: minutesLate,
+                            date: today,
+                            loggedBy: auth.currentUser.uid
+                        });
+                        count++;
+                    }
+                }
+
+                await batch.commit();
+
+                document.getElementById('morningStatus').innerHTML =
+                    `<div class="status-banner success">✅ ${count} student${count !== 1 ? 's' : ''} marked as arrived${isLate ? ' (Late)' : ''}</div>`;
+                showToast(`${count} arrivals logged!`);
+
+            } catch (err) {
+                console.error('Morning submit error:', err);
+                document.getElementById('morningStatus').innerHTML =
+                    `<div class="status-banner" style="background:var(--danger-bg); color:#991b1b;">Error: ${err.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '✅ Mark Arrived at School';
+            }
+        }
+
+        // =====================
+        // AFTERNOON MODE
+        // =====================
+        async function initAfternoonMode() {
+            const schoolId = sessionStorage.getItem('schoolId');
+            const today = getTodayDate();
+
+            document.getElementById('afternoonStudentList').innerHTML =
+                '<div class="loading-screen" style="min-height:20vh;"><div class="spinner"></div></div>';
+
+            try {
+                // 1. Get today's arrivals for this bus
+                const arrivalSnap = await db.collection('arrivals')
+                    .where('schoolId', '==', schoolId)
+                    .where('date', '==', today)
+                    .where('busId', '==', currentBus.id)
+                    .get();
+
+                const arrivedStudentIds = new Set(arrivalSnap.docs.map(d => d.data().studentId));
+
+                // 2. Also get arrivals by manual (students who came on bus but might have a manual arrival too)
+                // Include all bus students who arrived today by any method
+                const allArrivalsSnap = await db.collection('arrivals')
+                    .where('schoolId', '==', schoolId)
+                    .where('date', '==', today)
+                    .get();
+
+                const allArrivedIds = new Set(allArrivalsSnap.docs.map(d => d.data().studentId));
+
+                // 3. Get students already signed out (pickups)
+                let signedOutIds = new Set();
+                try {
+                    const pickupSnap = await db.collection('pickups')
+                        .where('schoolId', '==', schoolId)
+                        .where('date', '==', today)
+                        .get();
+                    signedOutIds = new Set(pickupSnap.docs.map(d => d.data().studentId));
+                } catch (e) {
+                    // pickups collection might not exist or have different structure
+                    console.warn('Could not check pickups:', e);
+                }
+
+                // 4. Filter: only bus students who arrived AND haven't been signed out
+                afternoonStudents = busStudents.filter(s =>
+                    allArrivedIds.has(s.id) && !signedOutIds.has(s.id)
+                );
+
+                const excludedCount = busStudents.filter(s =>
+                    !allArrivedIds.has(s.id) || signedOutIds.has(s.id)
+                ).length;
+
+                afternoonChecked = new Set(afternoonStudents.map(s => s.id));
+
+                // Show excluded note
+                if (excludedCount > 0) {
+                    document.getElementById('afternoonExcludedNote').innerHTML =
+                        `<div class="status-banner info">ℹ️ ${excludedCount} student${excludedCount !== 1 ? 's' : ''} excluded (absent or already signed out)</div>`;
+                } else {
+                    document.getElementById('afternoonExcludedNote').innerHTML = '';
+                }
+
+                renderAfternoonList();
+
+            } catch (err) {
+                console.error('Afternoon init error:', err);
+                document.getElementById('afternoonStudentList').innerHTML =
+                    `<div class="empty-state"><div class="icon">⚠️</div><p>Error loading: ${err.message}</p></div>`;
+            }
+        }
+
+        function renderAfternoonList() {
+            const container = document.getElementById('afternoonStudentList');
+            document.getElementById('afternoonCount').textContent = afternoonStudents.length;
+
+            if (afternoonStudents.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No students for this bus departure</p></div>';
+                return;
+            }
+
+            container.innerHTML = afternoonStudents.map(s => {
+                const checked = afternoonChecked.has(s.id);
+                return `
+                    <div class="student-card ${checked ? 'checked' : ''}" onclick="toggleAfternoon('${s.id}')">
+                        <div class="checkbox">${checked ? '✓' : ''}</div>
+                        <div class="info">
+                            <div class="name">${escapeHtml(s.name)}</div>
+                            <div class="detail">${s.class} • ${s.bookRentalNumber ? '#' + s.bookRentalNumber : ''}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleAfternoon(id) {
+            if (afternoonChecked.has(id)) afternoonChecked.delete(id);
+            else afternoonChecked.add(id);
+            renderAfternoonList();
+        }
+
+        async function submitAfternoonDeparture() {
+            if (afternoonChecked.size === 0) {
+                showToast('No students selected');
+                return;
+            }
+
+            const btn = document.getElementById('afternoonSubmitBtn');
+            btn.disabled = true;
+            btn.textContent = 'Confirming departure...';
+
+            const schoolId = sessionStorage.getItem('schoolId');
+            const today = getTodayDate();
+
+            try {
+                const batch = db.batch();
+
+                for (const studentId of afternoonChecked) {
+                    const student = busStudents.find(s => s.id === studentId);
+                    if (!student) continue;
+
+                    const ref = db.collection('departures').doc();
+                    batch.set(ref, {
+                        studentId: studentId,
+                        bookRentalNumber: student.bookRentalNumber || null,
+                        studentName: student.name,
+                        year: student.year,
+                        class: student.class,
+                        schoolId: schoolId,
+                        departureTime: firebase.firestore.FieldValue.serverTimestamp(),
+                        busId: currentBus.id,
+                        busName: currentBus.name,
+                        date: today,
+                        loggedBy: auth.currentUser.uid
+                    });
+                }
+
+                await batch.commit();
+
+                // Set trip students = afternoon checked students
+                tripStudents = busStudents.filter(s => afternoonChecked.has(s.id));
+                tripChecked = new Set();
+
+                document.getElementById('afternoonStatus').innerHTML =
+                    `<div class="status-banner success">✅ Departure confirmed for ${afternoonChecked.size} students</div>`;
+                showToast('Departure confirmed! Switch to Drop-off tab');
+
+            } catch (err) {
+                console.error('Departure error:', err);
+                document.getElementById('afternoonStatus').innerHTML =
+                    `<div class="status-banner" style="background:var(--danger-bg); color:#991b1b;">Error: ${err.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🚌 Confirm Departure';
+            }
+        }
+
+        // =====================
+        // ACTIVE TRIP / HOME DROP-OFF MODE
+        // =====================
+        async function initTripMode() {
+            const schoolId = sessionStorage.getItem('schoolId');
+            const today = getTodayDate();
+
+            // If tripStudents not set from afternoon, load from departures
+            if (tripStudents.length === 0) {
+                try {
+                    const depSnap = await db.collection('departures')
+                        .where('schoolId', '==', schoolId)
+                        .where('date', '==', today)
+                        .where('busId', '==', currentBus.id)
+                        .get();
+
+                    const departedIds = new Set(depSnap.docs.map(d => d.data().studentId));
+
+                    // Check who's already been dropped off
+                    const dropSnap = await db.collection('home_dropoffs')
+                        .where('schoolId', '==', schoolId)
+                        .where('date', '==', today)
+                        .where('busId', '==', currentBus.id)
+                        .get();
+
+                    const droppedIds = new Set(dropSnap.docs.map(d => d.data().studentId));
+
+                    // Trip = departed minus already dropped
+                    tripStudents = busStudents.filter(s => departedIds.has(s.id) && !droppedIds.has(s.id));
+                } catch (err) {
+                    console.error('Trip init error:', err);
+                }
+            }
+
+            tripChecked = new Set();
+            renderTripList();
+        }
+
+        function renderTripList() {
+            const container = document.getElementById('tripStudentList');
+            document.getElementById('tripRemainingCount').textContent = tripStudents.length;
+
+            if (tripStudents.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">🏁</div><p>All students have been dropped off!</p></div>';
+                document.getElementById('tripDropoffBtn').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('tripDropoffBtn').style.display = 'block';
+
+            container.innerHTML = tripStudents.map(s => {
+                const checked = tripChecked.has(s.id);
+                return `
+                    <div class="student-card ${checked ? 'checked' : ''}" onclick="toggleTrip('${s.id}')">
+                        <div class="checkbox">${checked ? '✓' : ''}</div>
+                        <div class="info">
+                            <div class="name">${escapeHtml(s.name)}</div>
+                            <div class="detail">${s.class} • ${s.bookRentalNumber ? '#' + s.bookRentalNumber : ''}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleTrip(id) {
+            if (tripChecked.has(id)) tripChecked.delete(id);
+            else tripChecked.add(id);
+            renderTripList();
+        }
+
+        async function confirmHomeDropoff() {
+            if (tripChecked.size === 0) {
+                showToast('Select students to drop off');
+                return;
+            }
+
+            const btn = document.getElementById('tripDropoffBtn');
+            btn.disabled = true;
+            btn.textContent = 'Confirming...';
+
+            const schoolId = sessionStorage.getItem('schoolId');
+            const today = getTodayDate();
+
+            try {
+                const batch = db.batch();
+
+                for (const studentId of tripChecked) {
+                    const student = busStudents.find(s => s.id === studentId);
+                    if (!student) continue;
+
+                    const ref = db.collection('home_dropoffs').doc();
+                    batch.set(ref, {
+                        studentId: studentId,
+                        bookRentalNumber: student.bookRentalNumber || null,
+                        studentName: student.name,
+                        year: student.year,
+                        class: student.class,
+                        schoolId: schoolId,
+                        dropoffTime: firebase.firestore.FieldValue.serverTimestamp(),
+                        busId: currentBus.id,
+                        busName: currentBus.name,
+                        date: today,
+                        loggedBy: auth.currentUser.uid
+                    });
+                }
+
+                await batch.commit();
+
+                const dropCount = tripChecked.size;
+                // Remove dropped students from trip list
+                tripStudents = tripStudents.filter(s => !tripChecked.has(s.id));
+                tripChecked = new Set();
+
+                showToast(`${dropCount} student${dropCount !== 1 ? 's' : ''} dropped off!`);
+                renderTripList();
+
+                if (tripStudents.length > 0) {
+                    document.getElementById('tripStatus').innerHTML =
+                        `<div class="status-banner success">✅ ${dropCount} dropped off. ${tripStudents.length} remaining.</div>`;
+                } else {
+                    document.getElementById('tripStatus').innerHTML =
+                        `<div class="status-banner success">🏁 All students dropped off! Trip complete.</div>`;
+                }
+
+            } catch (err) {
+                console.error('Home dropoff error:', err);
+                document.getElementById('tripStatus').innerHTML =
+                    `<div class="status-banner" style="background:var(--danger-bg); color:#991b1b;">Error: ${err.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🏠 Confirm Home Drop-Off';
+            }
+        }
+    </script>
+</body>
+
+</html>

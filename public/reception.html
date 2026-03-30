@@ -5,7 +5,89 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Reception interface for student pickup sign-out">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-analytics-compat.js"></script>
+
+    <!-- Firebase Config -->
+    <script src="/firebase-config.js"></script>
+
+    <!-- Auth Guard for Reception Page -->
+    <script>
+        // Global logout function
+        async function handleLogout() {
+            try {
+                await auth.signOut();
+                window.location.href = 'login.html';
+            } catch (error) {
+                console.error('Logout failed:', error);
+                alert('Logout failed. Please try again.');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            auth.onAuthStateChanged(async user => {
+                if (!user) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                // Verify teacher/admin/superAdmin role
+                try {
+                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    const userData = userDoc.data();
+                    const role = userData ? userData.role : null;
+
+                    if (!userDoc.exists || !['teacher', 'admin', 'superAdmin'].includes(role)) {
+                        alert('Access Denied: Staff Only');
+                        await auth.signOut();
+                        window.location.href = 'login.html';
+                    } else {
+                        // Store context
+                        if (userData.schoolId) {
+                            sessionStorage.setItem('schoolId', userData.schoolId);
+
+                            // BRANDING: Fetch School Settings
+                            // BRANDING: Fetch School Settings
+                            db.collection('schools').doc(userData.schoolId).get().then(doc => {
+                                if (doc.exists) {
+                                    const schoolData = doc.data();
+
+                                    // Check Suspension
+                                    if (schoolData.status === 'suspended') {
+                                        alert('⚠️ Your school account is suspended. Please contact the school administration.');
+                                        auth.signOut();
+                                        window.location.href = 'login.html';
+                                        return;
+                                    }
+
+                                    if (schoolData.name) document.title = `Reception - ${schoolData.name}`;
+
+                                    // Apply Premium Branding
+                                    if (schoolData.subscriptionPlan === 'premium') {
+                                        window.applyBranding(schoolData);
+                                    }
+                                }
+                            });
+
+                            // START LISTENERS AFTER schoolId is confirmed
+                            loadYears();
+                            listenForPickups();
+                        }
+                        sessionStorage.setItem('userRole', role);
+                    }
+                } catch (err) {
+                    console.error("Auth check failed", err);
+                    window.location.href = 'login.html';
+                }
+            });
+        });
+    </script>
+
     <title>Reception - Student Pickup</title>
+    <link rel="icon" type="image/png" href="images/logo.png">
     <link rel="stylesheet" href="styles.css">
     <style>
         .reception-container {
@@ -315,200 +397,801 @@
                 margin-top: 1rem;
             }
         }
+
+        /* TOAST NOTIFICATIONS */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            min-width: 300px;
+            max-width: 400px;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            color: white;
+            font-weight: 500;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: toastSlideIn 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        .toast.warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .toast.info {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+        }
+
+        .toast-icon {
+            font-size: 1.5rem;
+        }
+
+        .toast-message {
+            flex: 1;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        .toast-close:hover {
+            opacity: 1;
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes toastSlideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+        }
+
+        /* --- MOBILE OPTIMIZATION --- */
+        @media (max-width: 600px) {
+            .pickup-input-group {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .pickup-input-group input {
+                max-width: 100% !important;
+                width: 100%;
+            }
+
+            .pickup-input-group .btn {
+                width: 100%;
+            }
+
+            .modal-actions {
+                flex-direction: column;
+            }
+
+            .modal-actions button {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+
+            /* Adjust button text size slightly if needed */
+            .btn-xl {
+                font-size: 1.1rem;
+                padding: 1rem;
+            }
+        }
+
+        /* RECALL BUTTON STYLES */
+        .queue-item-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-recall {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn-recall:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-recall:active {
+            transform: translateY(0);
+        }
+
+        /* ===== RECEPTION TABS ===== */
+        .reception-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: var(--spacing-lg);
+            border-bottom: 2px solid var(--border);
+        }
+
+        .reception-tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+
+        .reception-tab:hover {
+            color: var(--primary);
+        }
+
+        .reception-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* Drop-Off Styles */
+        .dropoff-input-group {
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
+        }
+
+        .dropoff-input-group input {
+            font-size: 2rem;
+            text-align: center;
+            letter-spacing: 0.15em;
+            font-family: monospace;
+            font-weight: 700;
+            max-width: 280px;
+        }
+
+        .student-preview {
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            border: 2px solid #7dd3fc;
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .student-preview.visible {
+            display: block;
+        }
+
+        .student-preview .sp-name {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #0c4a6e;
+        }
+
+        .student-preview .sp-detail {
+            font-size: 0.95rem;
+            color: #0369a1;
+            margin-top: 4px;
+        }
+
+        .student-preview.already-arrived {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border-color: #fbbf24;
+        }
+
+        .student-preview.already-arrived .sp-name {
+            color: #92400e;
+        }
+
+        .student-preview.already-arrived .sp-detail {
+            color: #a16207;
+        }
+
+        .arrival-log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .arrival-log-table th {
+            background: #f1f5f9;
+            padding: 0.6rem 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .arrival-log-table td {
+            padding: 0.6rem 0.75rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .late-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .late-badge.on-time {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .late-badge.late {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Bulk Drop-off Preview Additions */
+        .bulk-preview-list {
+            margin-top: 1rem;
+            max-height: 250px;
+            overflow-y: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            display: none;
+        }
+
+        .bulk-preview-list.visible {
+            display: block;
+        }
+
+        .bulk-preview-item {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bulk-preview-item:last-child {
+            border-bottom: none;
+        }
+
+        .bulk-preview-item.already-arrived {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+        }
+
+        .bulk-preview-item .sp-name {
+            font-size: 1rem;
+            margin-bottom: 2px;
+        }
+
+        .bulk-preview-item .sp-detail {
+            font-size: 0.8rem;
+        }
+
+        .bulk-summary {
+            margin-top: 1rem;
+            display: none;
+            text-align: center;
+        }
+
+        .bulk-summary.visible {
+            display: block;
+        }
+
+        /* Bulk Drop-off Preview Additions */
+        .bulk-preview-list {
+            margin-top: 1rem;
+            max-height: 250px;
+            overflow-y: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            display: none;
+        }
+
+        .bulk-preview-list.visible {
+            display: block;
+        }
+
+        .bulk-preview-item {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bulk-preview-item:last-child {
+            border-bottom: none;
+        }
+
+        .bulk-preview-item.already-arrived {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+        }
+
+        .bulk-preview-item .sp-name {
+            font-size: 1rem;
+            margin-bottom: 2px;
+        }
+
+        .bulk-preview-item .sp-detail {
+            font-size: 0.8rem;
+        }
+
+        .bulk-summary {
+            margin-top: 1rem;
+            display: none;
+            text-align: center;
+        }
+
+        .bulk-summary.visible {
+            display: block;
+        }
+
+        /* Name Search Autocomplete */
+        .name-search-container {
+            position: relative;
+            margin-top: 1rem;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .autocomplete-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .autocomplete-item:hover {
+            background-color: var(--primary-light);
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 
 <body>
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
     <div class="reception-container">
 
 
         <div class="header">
-            <h1>📝 Reception Sign-Out</h1>
+            <div style="display: flex; align-items: center; gap: 15px; margin-right: 1rem;">
+                <img src="images/logo.png" id="schoolLogo" alt="SurePickup Logo"
+                    style="height: 50px; background: white; padding: 4px; border-radius: 8px;">
+            </div>
+            <h1 style="margin-right: auto;">📝 Reception</h1>
+            <button class="btn btn-secondary" onclick="handleLogout()"
+                style="background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                Sign Out
+            </button>
         </div>
 
-        <div class="sign-out-form">
-            <h2 class="mb-md">Sign Out Students</h2>
-
-            <!-- Pickup Code Section -->
-            <!-- Pickup Code Section -->
-            <div
-                style="background: #eef2ff; border: 2px dashed #4f46e5; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;">
-                <label style="display:block; margin-bottom:0.5rem; color:#4f46e5; font-weight:700;">ENTER 6-DIGIT PICKUP
-                    CODE (Parent App)</label>
-                <div class="pickup-input-group" style="display:flex; gap:10px;">
-                    <input type="text" id="pickupCodeInput" class="form-control form-control-lg"
-                        placeholder="e.g. 123 456"
-                        style="font-size:1.5rem; text-align:center; letter-spacing:0.2em; font-family:monospace; max-width: 300px;">
-                    <button type="button" class="btn btn-primary" onclick="verifyPickupCode()">Validate & Sign
-                        Out</button>
-                    <button type="button" class="btn btn-secondary"
-                        onclick="document.getElementById('pickupCodeInput').value=''">Clear</button>
-                </div>
-            </div>
-
-            <hr style="border:0; border-top:1px solid var(--border); margin: 2rem 0;">
-            <h3>Or Select Manually</h3>
-
-            <form id="signOutForm">
-                <div class="form-group mb-md">
-                    <label class="form-label" for="yearSelect">Select Year Group</label>
-                    <select id="yearSelect" class="form-control form-control-lg" required>
-                        <option value="">Select Year...</option>
-                    </select>
-                </div>
-
-                <div id="studentSelectionArea" style="display: none;">
-                    <div class="search-container">
-                        <span class="search-icon">🔍</span>
-                        <input type="text" id="studentSearch" class="form-control" placeholder="Search student name...">
-                    </div>
-
-                    <div class="flex justify-between items-center mb-sm">
-                        <label class="form-label mb-0">Select Students <span id="selectedCount" class="selection-count"
-                                style="display: none;">0</span></label>
-                        <button type="button" class="btn btn-sm btn-secondary" id="selectAllBtn">Select All</button>
-                    </div>
-
-                    <div class="student-list-container" id="studentList">
-                        <!-- Students will be populated here -->
-                    </div>
-
-                    <button type="submit" class="btn btn-success btn-xl w-full" id="submitBtn" disabled>
-                        Sign Out Selected Students
-                    </button>
-                </div>
-            </form>
+        <!-- Reception Tabs -->
+        <div class="reception-tabs">
+            <button class="reception-tab active" onclick="switchReceptionTab('signout')" id="tab-signout">📋
+                Sign-Out</button>
+            <button class="reception-tab" onclick="switchReceptionTab('dropoff')" id="tab-dropoff">🚌 Drop-Off</button>
         </div>
 
-        <div class="queue-section">
-            <div class="queue-header">
-                <h2>📋 Current Pickup Queue</h2>
-                <span class="badge badge-success" id="queueCount">0 pending</span>
-            </div>
+        <!-- ===== SIGN-OUT TAB (Existing) ===== -->
+        <div id="panel-signout" class="tab-panel active">
 
-            <div class="queue-list" id="queueList">
-                <div class="empty-state">
-                    <div class="empty-state-icon">✅</div>
-                    <p>No pending pickups</p>
+            <div class="sign-out-form">
+                <!-- Verification Modal (Hidden) -->
+                <div id="verificationModal"
+                    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; justify-content:center; align-items:center;">
+                    <div
+                        style="background:white; padding:2rem; border-radius:12px; width:90%; max-width:500px; max-height: 90vh; overflow-y: auto; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+                        <h2
+                            style="color:var(--primary); margin-bottom:1rem; border-bottom:1px solid #eee; padding-bottom:0.8rem;">
+                            🔒 Verify Pickup Identity</h2>
+
+                        <div
+                            style="margin-bottom:1.5rem; background:#f8fafc; padding:1rem; border-radius:8px; border:1px solid #e2e8f0;">
+                            <div style="font-size:0.9rem; color:#64748b; margin-bottom:0.25rem;">designated picker</div>
+                            <div id="vmPickerName" style="font-size:1.3rem; font-weight:700; color:#0f172a;"></div>
+                            <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem;">
+                                <span style="font-size:0.9rem; color:#64748b;">Expect ID:</span>
+                                <span id="vmIdType"
+                                    style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-weight:600; font-size:0.9rem;"></span>
+                            </div>
+                            <!-- Picker Image -->
+                            <img id="vmPickerImage" src=""
+                                style="display:none; width:100%; max-height:250px; object-fit:contain; border-radius:8px; margin-top:1rem; border:1px solid #ddd; background:white;">
+                        </div>
+
+                        <div style="margin-bottom:1.5rem;">
+                            <div style="font-size:0.9rem; color:#64748b; margin-bottom:0.5rem;">Students to release:
+                            </div>
+                            <ul id="vmStudentList"
+                                style="list-style:none; padding:0; margin:0; border:1px solid #e2e8f0; border-radius:6px; overflow:hidden;">
+                                <!-- Items -->
+                            </ul>
+                        </div>
+
+                        <div class="modal-actions" style="display:flex; gap:10px;">
+                            <button onclick="closeVerificationModal()" class="btn btn-secondary"
+                                style="flex:1;">Reject</button>
+                            <button id="vmApproveBtn" class="btn btn-primary"
+                                style="flex:2; background: linear-gradient(135deg, #16a34a, #15803d);">✅ Approve & Sign
+                                Out</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Class Merge Section -->
-        <div class="queue-section" style="margin-top: 2rem;">
-            <div class="queue-header" style="cursor: pointer;" onclick="toggleMergeSection()">
-                <h2>🔀 Merge Classes</h2>
-                <span id="mergeToggle" style="font-size: 1.5rem;">▼</span>
-            </div>
+                <h2 class="mb-md">Sign Out Students</h2>
 
-            <div id="mergeSection" style="display: none; padding-top: 1rem;">
+                <!-- Pickup Code Section -->
+                <!-- Pickup Code Section -->
                 <div
-                    style="background: var(--bg-card); border: 2px solid var(--border); border-radius: 12px; padding: 1.5rem;">
-                    <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.9rem;">When a teacher is
-                        absent, merge their class into another classroom's display.</p>
-
-                    <div class="merge-grid"
-                        style="display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 1rem; align-items: end;">
-                        <!-- Source -->
-                        <div>
-                            <label class="form-label">Source (Absent)</label>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <select id="mergeSourceYear" class="form-control" onchange="loadMergeClasses('source')">
-                                    <option value="">Year</option>
-                                </select>
-                                <select id="mergeSourceClass" class="form-control">
-                                    <option value="">Class</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="merge-arrow" style="font-size: 1.5rem; padding-bottom: 0.5rem;">→</div>
-
-                        <!-- Host -->
-                        <div>
-                            <label class="form-label">Host (Active)</label>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <select id="mergeHostYear" class="form-control" onchange="loadMergeClasses('host')">
-                                    <option value="">Year</option>
-                                </select>
-                                <select id="mergeHostClass" class="form-control">
-                                    <option value="">Class</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <button class="btn btn-primary" onclick="createMerge()">Merge</button>
+                    style="background: #eef2ff; border: 2px dashed #4f46e5; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;">
+                    <label style="display:block; margin-bottom:0.5rem; color:#4f46e5; font-weight:700;">ENTER 6-DIGIT
+                        PICKUP
+                        CODE (Parent App)</label>
+                    <div class="pickup-input-group" style="display:flex; gap:10px;">
+                        <input type="text" id="pickupCodeInput" class="form-control form-control-lg"
+                            placeholder="e.g. 123 456"
+                            style="font-size:1.5rem; text-align:center; letter-spacing:0.2em; font-family:monospace; max-width: 300px;">
+                        <button type="button" class="btn btn-primary" onclick="verifyPickupCode()">Validate & Sign
+                            Out</button>
+                        <button type="button" class="btn btn-secondary"
+                            onclick="document.getElementById('pickupCodeInput').value=''">Clear</button>
                     </div>
                 </div>
 
-                <!-- Active Merges List -->
-                <div style="margin-top: 1.5rem;">
-                    <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Active Merges</h3>
-                    <div id="activeMergesList">
-                        <p style="color: var(--text-muted); font-size: 0.9rem;">No active merges</p>
+                <hr style="border:0; border-top:1px solid var(--border); margin: 2rem 0;">
+                <h3>Or Select Manually</h3>
+
+                <form id="signOutForm">
+                    <div class="search-container" style="margin-bottom: 20px;">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="studentSearch" class="form-control form-control-lg"
+                            placeholder="Search any student name..." style="padding-left: 45px; font-size: 1.1rem;">
+                    </div>
+
+                    <div class="form-row mb-md">
+                        <div style="flex: 1;">
+                            <label class="form-label" for="yearSelect">Filter by Year (Deselect to see all)</label>
+                            <select id="yearSelect" class="form-control">
+                                <option value="">All Years</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="studentSelectionArea">
+                        <div class="flex justify-between items-center mb-sm">
+                            <label class="form-label mb-0">Select Students <span id="selectedCount"
+                                    class="selection-count" style="display: none;">0</span></label>
+                            <button type="button" class="btn btn-sm btn-secondary" id="selectAllBtn">Select All
+                                Visible</button>
+                        </div>
+
+                        <div class="student-list-container" id="studentList">
+                            <div style="padding:40px; text-align:center; color:var(--text-muted);">
+                                <div class="spinner"
+                                    style="border-color: var(--primary); border-right-color: transparent;">
+                                </div>
+                                Loading students...
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success btn-xl w-full" id="submitBtn" disabled>
+                            Sign Out Selected Students
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="queue-section">
+                <div class="queue-header">
+                    <h2>📋 Current Pickup Queue</h2>
+                    <span class="badge badge-success" id="queueCount">0 pending</span>
+                </div>
+
+                <div class="queue-list" id="queueList">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✅</div>
+                        <p>No pending pickups</p>
                     </div>
                 </div>
             </div>
-        </div>
+
+            <!-- Class Merge Section -->
+            <div class="queue-section" style="margin-top: 2rem;">
+                <div class="queue-header" style="cursor: pointer;" onclick="toggleMergeSection()">
+                    <h2>🔀 Merge Classes</h2>
+                    <span id="mergeToggle" style="font-size: 1.5rem;">▼</span>
+                </div>
+
+                <div id="mergeSection" style="display: none; padding-top: 1rem;">
+                    <div
+                        style="background: var(--bg-card); border: 2px solid var(--border); border-radius: 12px; padding: 1.5rem;">
+                        <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.9rem;">When a teacher
+                            is
+                            absent, merge their class into another classroom's display.</p>
+
+                        <div class="merge-grid"
+                            style="display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 1rem; align-items: end;">
+                            <!-- Source -->
+                            <div>
+                                <label class="form-label">Source (Absent)</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <select id="mergeSourceYear" class="form-control"
+                                        onchange="loadMergeClasses('source')">
+                                        <option value="">Year</option>
+                                    </select>
+                                    <select id="mergeSourceClass" class="form-control">
+                                        <option value="">Class</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="merge-arrow" style="font-size: 1.5rem; padding-bottom: 0.5rem;">→</div>
+
+                            <!-- Host -->
+                            <div>
+                                <label class="form-label">Host (Active)</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <select id="mergeHostYear" class="form-control" onchange="loadMergeClasses('host')">
+                                        <option value="">Year</option>
+                                    </select>
+                                    <select id="mergeHostClass" class="form-control">
+                                        <option value="">Class</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-primary" onclick="createMerge()">Merge</button>
+                        </div>
+                    </div>
+
+                    <!-- Active Merges List -->
+                    <div style="margin-top: 1.5rem;">
+                        <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Active Merges</h3>
+                        <div id="activeMergesList">
+                            <p style="color: var(--text-muted); font-size: 0.9rem;">No active merges</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div> <!-- End Sign-Out Tab Panel -->
+
+        <!-- ===== DROP-OFF TAB (New) ===== -->
+        <div id="panel-dropoff" class="tab-panel">
+            <div class="sign-out-form">
+                <h2 class="mb-md">🏫 Student Drop-Off</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Enter one or more book rental numbers
+                    (separated by commas or spaces) to log arrivals.</p>
+
+                <!-- Book Rental No. Input -->
+                <div
+                    style="background: #f0fdf4; border: 2px dashed #22c55e; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                    <label style="display:block; margin-bottom:0.5rem; color:#15803d; font-weight:700;">ENTER BOOK
+                        RENTAL NO(S).</label>
+                    <div class="dropoff-input-group">
+                        <input type="text" id="dropoffAdmInput" class="form-control form-control-lg"
+                            placeholder="e.g. A001, F034" style="text-transform: uppercase;">
+                        <button type="button" class="btn btn-primary" onclick="lookupStudentForDropoff()"
+                            id="dropoffLookupBtn"
+                            style="background: linear-gradient(135deg, #22c55e, #16a34a); font-size: 1rem; padding: 0 1.5rem; white-space: nowrap;">🔍
+                            Lookup</button>
+                    </div>
+
+                    <!-- OR Name Search -->
+                    <div
+                        style="text-align: center; color: var(--text-muted); margin: 1rem 0; font-weight: 600; font-size: 0.9rem;">
+                        — OR —</div>
+
+                    <div class="name-search-container">
+                        <label
+                            style="display:block; margin-bottom:0.5rem; color:#15803d; font-weight:700; font-size:0.85rem;">SEARCH
+                            BY NAME</label>
+                        <input type="text" id="dropoffNameSearch" class="form-control"
+                            placeholder="Start typing a name..." autocomplete="off">
+                        <div id="dropoffNameDropdown" class="autocomplete-dropdown">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Bulk Student Preview List -->
+                    <div id="bulkPreviewList" class="bulk-preview-list">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <!-- Action Area -->
+                    <div id="bulkActionArea" class="bulk-summary">
+                        <div id="dropoffNoticeMsg" style="margin-bottom:8px; font-weight:600; color:#92400e;"></div>
+                        <button type="button" class="btn btn-success btn-xl" id="confirmArrivalBtn"
+                            onclick="confirmArrival()" style="width: 100%; font-size: 1.1rem; padding: 0.75rem;">
+                            ✅ Confirm Arrivals
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Today's Arrival Summary -->
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <h3 style="margin: 0;">Today's Arrivals</h3>
+                    <span class="badge badge-success" id="arrivalCount">0 arrived</span>
+                </div>
+
+                <div
+                    style="border: 2px solid var(--border); border-radius: var(--radius-lg); max-height: 400px; overflow-y: auto; background: var(--bg-background);">
+                    <table class="arrival-log-table">
+                        <thead>
+                            <tr>
+                                <th>Adm. No.</th>
+                                <th>Name</th>
+                                <th>Year / Class</th>
+                                <th>Arrived</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="arrivalLogBody">
+                            <tr>
+                                <td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">No
+                                    arrivals logged today</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div> <!-- End Drop-Off Tab Panel -->
+
     </div>
 
     <script>
-        let allStudentsInYear = [];
+        let allStudentsCache = []; // Renamed from allStudentsInYear since it holds ALL students
         let selectedStudentIds = new Set();
         let pendingPickups = [];
 
-        // Load years on page load
-        async function loadYears() {
-            try {
-                const response = await fetch('/api/years');
-                const years = await response.json();
+        // Initialize Page - Load all students immediately
+        function loadYears() {
+            // Updated year dropdown to be a filter
+            const years = [7, 8, 9, 10, 11, 12];
+            const select = document.getElementById('yearSelect');
+            select.innerHTML = '<option value="">All Years</option>';
+            years.forEach(year => {
+                select.innerHTML += `<option value="${year}">Year ${year}</option>`;
+            });
 
-                const yearSelect = document.getElementById('yearSelect');
-                years.forEach(({ year }) => {
-                    const option = document.createElement('option');
-                    option.value = year;
-                    option.textContent = `Year ${year}`;
-                    yearSelect.appendChild(option);
-                });
+            // Trigger global load
+            loadAllStudentsGlobal();
+        }
+
+        // --- CORE FUNCTION: LOAD ALL STUDENTS ---
+        async function loadAllStudentsGlobal() {
+            const container = document.getElementById('studentSelectionArea');
+            container.style.display = 'block';
+
+            try {
+                const schoolId = sessionStorage.getItem('schoolId');
+                if (!schoolId) return;
+
+                console.log("Fetching full student list...");
+
+                // Fetch ALL students for the school
+                // Note: For <2000 students this is very fast. For larger schools, we'd add pagination.
+                const snapshot = await db.collection('students')
+                    .where('schoolId', '==', schoolId)
+                    .get();
+
+                allStudentsCache = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                // Sort alphabetically by name
+                allStudentsCache.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+                selectedStudentIds.clear();
+                updateSubmitButton();
+
+                // Initial Render (Show all or empty state?)
+                // Strategy: Show all if < 50, otherwise ask to search
+                filterAndRenderStudents();
+
             } catch (error) {
-                console.error('Error loading years:', error);
+                console.error('Error loading global student list:', error);
+                document.getElementById('studentList').innerHTML =
+                    '<div style="padding:20px; text-align:center; color:red;">Error loading student database. Please refresh.</div>';
             }
         }
 
-        // Load students when year is selected
-        document.getElementById('yearSelect').addEventListener('change', async (e) => {
-            const year = e.target.value;
-            const selectionArea = document.getElementById('studentSelectionArea');
-            const studentList = document.getElementById('studentList');
+        // --- FILTER & RENDER LOGIC ---
+        function filterAndRenderStudents() {
+            const searchTerm = document.getElementById('studentSearch').value.toLowerCase().trim();
+            const yearFilter = document.getElementById('yearSelect').value;
 
-            // Reset state
-            selectedStudentIds.clear();
-            updateSubmitButton();
-            document.getElementById('studentSearch').value = '';
+            // Filter logic
+            const filtered = allStudentsCache.filter(student => {
+                const matchesName = !searchTerm || (student.name && student.name.toLowerCase().includes(searchTerm));
+                const matchesYear = !yearFilter || (student.year && student.year.toString() === yearFilter.toString());
+                return matchesName && matchesYear;
+            });
 
-            if (!year) {
-                selectionArea.style.display = 'none';
-                return;
-            }
+            renderStudentList(filtered);
+        }
 
-            // Show loading state
-            selectionArea.style.display = 'block';
-            studentList.innerHTML = '<div class="empty-state"><p>Loading students...</p></div>';
+        // EVENT LISTENERS FOR FILTERS
+        document.getElementById('yearSelect').addEventListener('change', filterAndRenderStudents);
+        document.getElementById('studentSearch').addEventListener('input', filterAndRenderStudents);
 
-            try {
-                const response = await fetch(`/api/students/year/${year}`);
-                allStudentsInYear = await response.json();
-                renderStudentList(allStudentsInYear);
-            } catch (error) {
-                console.error('Error loading students:', error);
-                studentList.innerHTML = '<div class="empty-state"><p class="text-danger">Error loading students</p></div>';
-            }
-        });
-
-        // Use event delegation for student selection (better performance)
+        // Selection Event Delegation
         document.getElementById('studentList').addEventListener('change', (e) => {
             if (e.target.classList.contains('student-checkbox')) {
-                const studentId = parseInt(e.target.value);
+                const studentId = e.target.value;
                 if (e.target.checked) {
                     selectedStudentIds.add(studentId);
                     e.target.closest('.student-list-item').classList.add('selected');
@@ -520,23 +1203,14 @@
             }
         });
 
-        // Search filtering
-        document.getElementById('studentSearch').addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            const filteredStudents = allStudentsInYear.filter(student =>
-                student.name.toLowerCase().includes(searchTerm)
-            );
-            renderStudentList(filteredStudents);
-        });
-
-        // Select All / Deselect All
+        // Select All Visible
         document.getElementById('selectAllBtn').addEventListener('click', () => {
-            const checkboxes = document.querySelectorAll('.student-checkbox');
+            const checkboxes = document.querySelectorAll('#studentList .student-checkbox');
             const allChecked = Array.from(checkboxes).every(cb => cb.checked);
 
             checkboxes.forEach(cb => {
                 cb.checked = !allChecked;
-                const studentId = parseInt(cb.value);
+                const studentId = cb.value;
                 if (!allChecked) {
                     selectedStudentIds.add(studentId);
                     cb.closest('.student-list-item').classList.add('selected');
@@ -565,7 +1239,9 @@
                         <input type="checkbox" class="student-checkbox" value="${student.id}" ${isSelected ? 'checked' : ''}>
                         <div class="student-info">
                             <span class="student-name">${student.name}</span>
-                            <span class="class-badge ${badgeClass}">${student.class}</span>
+                            <span class="class-badge ${badgeClass}">
+                                ${student.year ? `Year ${student.year} - ` : ''}${student.class}
+                            </span>
                         </div>
                     </label>
                 `;
@@ -588,6 +1264,44 @@
             }
         }
 
+        // Show toast notification (replaces alert())
+        function showToast(message, type = 'info') {
+            const icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || icons.info}</span>
+                <span class="toast-message">${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+            `;
+
+            container.appendChild(toast);
+
+            // Auto-remove after 4 seconds
+            setTimeout(() => {
+                toast.style.animation = 'toastSlideOut 0.3s ease forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Helper to prevent XSS
+        function escapeHtml(text) {
+            if (!text) return text;
+            return text.toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         // Handle form submission
         document.getElementById('signOutForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -600,25 +1314,23 @@
             submitBtn.innerHTML = '<span class="spinner"></span> Processing...';
 
             let successCount = 0;
-            const studentsToSignOut = allStudentsInYear.filter(s => selectedStudentIds.has(s.id));
+            const studentsToSignOut = allStudentsCache.filter(s => selectedStudentIds.has(s.id));
 
             // Process sequentially to ensure order
             for (const student of studentsToSignOut) {
                 const pickupData = {
                     student_id: student.id,
                     student_name: student.name,
-                    year: student.year,
-                    class: student.class // This ensures routing to correct display!
+                    year: parseInt(student.year), // Ensure number
+                    class: student.class,
+                    schoolId: sessionStorage.getItem('schoolId'), // Add schoolId
+                    timestamp: Date.now(),
+                    status: 'pending'
                 };
 
                 try {
-                    const response = await fetch('/api/pickups', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(pickupData)
-                    });
-
-                    if (response.ok) successCount++;
+                    await db.collection('pickups').add(pickupData);
+                    successCount++;
                 } catch (error) {
                     console.error(`Error signing out ${student.name}:`, error);
                 }
@@ -628,7 +1340,10 @@
 
             // Reset
             selectedStudentIds.clear();
-            renderStudentList(allStudentsInYear); // Refresh UI choices
+            // renderStudentList(allStudentsInYear); // Re-render to clear checkboxes? Or just keep list.
+            // Actually, keep list but Uncheck them.
+            document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = false);
+            updateSubmitButton();
             document.getElementById('studentSearch').value = '';
             updateSubmitButton();
 
@@ -636,7 +1351,7 @@
             submitBtn.textContent = 'Sign Out Selected Students';
 
             // Reload queue
-            loadPendingPickups();
+            // Queue updates automatically via listener
         });
 
         // Show success message
@@ -651,16 +1366,32 @@
             }, 3000);
         }
 
-        // Load pending pickups
-        async function loadPendingPickups() {
-            try {
-                const response = await fetch('/api/pickups/pending');
-                pendingPickups = await response.json();
-                renderQueue();
-            } catch (error) {
-                console.error('Error loading pending pickups:', error);
-            }
+        // Create Real-time Listener
+        let unsubscribePickups = null;
+
+        function listenForPickups() {
+            // Unsubscribe existing if any
+            if (unsubscribePickups) unsubscribePickups();
+
+            const schoolId = sessionStorage.getItem('schoolId');
+            if (!schoolId) return;
+
+            unsubscribePickups = db.collection('pickups')
+                .where('schoolId', '==', schoolId)
+                .where('status', '==', 'pending')
+                .orderBy('timestamp', 'asc') // Requires Index? No, pending + timestamp might need simple index
+                .onSnapshot((snapshot) => {
+                    pendingPickups = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                    renderQueue();
+                }, (error) => {
+                    console.error("Error listening to pickups:", error);
+                });
         }
+
+        let selectedPendingPickups = new Set();
 
         // Render queue
         function renderQueue() {
@@ -676,8 +1407,38 @@
             <p>No pending pickups</p>
           </div>
         `;
+                document.getElementById('queueHeaderActions').style.display = 'none';
                 return;
             }
+
+            // Show bulk action header if there are items
+            let headerActions = document.getElementById('queueHeaderActions');
+            if (!headerActions) {
+                const header = document.querySelector('.queue-header');
+                header.insertAdjacentHTML('beforeend', `
+                    <div id="queueHeaderActions" style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-top:10px; padding-top:10px; border-top:1px solid #e2e8f0;">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.85rem; color:#64748b; font-weight:600;">
+                            <input type="checkbox" id="selectAllPendingCb" onchange="toggleAllPending(this.checked)">
+                            Select All
+                        </label>
+                        <button id="deleteSelectedPendingBtn" class="btn btn-danger btn-sm" style="display:none;" onclick="deleteSelectedPendingPickups()">❌ Delete Selected</button>
+                    </div>
+                `);
+                headerActions = document.getElementById('queueHeaderActions');
+            }
+            headerActions.style.display = 'flex';
+
+            // Clean up selected map (remove ones no longer pending)
+            const newSelected = new Set();
+            pendingPickups.forEach(p => {
+                if (selectedPendingPickups.has(p.id)) newSelected.add(p.id);
+            });
+            selectedPendingPickups = newSelected;
+            updatePendingBulkDeleteBtn();
+
+            const allChecked = pendingPickups.length > 0 && selectedPendingPickups.size === pendingPickups.length;
+            const selectAllCb = document.getElementById('selectAllPendingCb');
+            if (selectAllCb) selectAllCb.checked = allChecked;
 
             queueList.innerHTML = pendingPickups.map(pickup => {
                 const waitTime = Math.floor((Date.now() - pickup.timestamp) / 1000 / 60);
@@ -685,27 +1446,105 @@
                 if (waitTime > 5) waitClass = 'danger';
                 else if (waitTime > 2) waitClass = 'warning';
 
+                const isChecked = selectedPendingPickups.has(pickup.id);
+
                 return `
-          <div class="queue-item">
-            <div class="queue-item-info">
-              <h3>${pickup.student_name}</h3>
-              <div class="queue-item-meta">
-                <span>Year ${pickup.year} ${pickup.class.charAt(0).toUpperCase() + pickup.class.slice(1)}</span>
-                <span class="waiting-time ${waitClass}">⏱️ ${waitTime} min${waitTime !== 1 ? 's' : ''}</span>
+          <div class="queue-item" style="${isChecked ? 'border-left:4px solid #ef4444; background:#fef2f2;' : ''}">
+            <div class="queue-item-info" style="display:flex; align-items:center; gap:10px;">
+              <input type="checkbox" class="pending-pickup-cb" value="${pickup.id}" ${isChecked ? 'checked' : ''} onchange="togglePendingPickup('${pickup.id}', this.checked)">
+              <div>
+                  <h3 style="${isChecked ? 'color:#991b1b;' : ''}">${escapeHtml(pickup.student_name)}</h3>
+                  <div class="queue-item-meta">
+                    <span>Year ${pickup.year} ${escapeHtml(pickup.class).toUpperCase()}</span>
+                    <span class="waiting-time ${waitClass}">⏱️ ${waitTime} min${waitTime !== 1 ? 's' : ''}</span>
+                  </div>
               </div>
             </div>
-            <span class="badge badge-warning">Pending</span>
+            <div class="queue-item-actions">
+              <button class="btn btn-recall" onclick="recallPickup('${pickup.id}', '${escapeHtml(pickup.student_name)}')">❌ Recall</button>
+              <span class="badge badge-warning">Pending</span>
+            </div>
           </div>
         `;
             }).join('');
         }
 
-        // Auto-refresh queue every 5 seconds
-        setInterval(loadPendingPickups, 5000);
+        function togglePendingPickup(id, isChecked) {
+            if (isChecked) selectedPendingPickups.add(id);
+            else selectedPendingPickups.delete(id);
+            renderQueue(); // Re-render to update UI and "Select All" state
+        }
 
-        // Initialize
-        loadYears();
-        loadPendingPickups();
+        function toggleAllPending(isChecked) {
+            if (isChecked) {
+                pendingPickups.forEach(p => selectedPendingPickups.add(p.id));
+            } else {
+                selectedPendingPickups.clear();
+            }
+            renderQueue();
+        }
+
+        function updatePendingBulkDeleteBtn() {
+            const btn = document.getElementById('deleteSelectedPendingBtn');
+            if (!btn) return;
+            if (selectedPendingPickups.size > 0) {
+                btn.style.display = 'block';
+                btn.textContent = `❌ Delete Selected (${selectedPendingPickups.size})`;
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+
+        async function deleteSelectedPendingPickups() {
+            if (selectedPendingPickups.size === 0) return;
+            const count = selectedPendingPickups.size;
+            if (!confirm(`Are you sure you want to recall ${count} pickup requests? They will be removed from displays.`)) return;
+
+            const btn = document.getElementById('deleteSelectedPendingBtn');
+            btn.disabled = true;
+            btn.textContent = 'Deleting...';
+
+            try {
+                const batch = db.batch();
+                selectedPendingPickups.forEach(id => {
+                    batch.delete(db.collection('pickups').doc(id));
+                });
+                await batch.commit();
+
+                showToast(`Successfully recalled ${count} pickup(s)`, 'success');
+                selectedPendingPickups.clear();
+                // Queue will auto-update via snapshot listener
+            } catch (error) {
+                console.error('Error deleting pending pickups:', error);
+                showToast('Failed to delete selected pickups', 'error');
+            } finally {
+                btn.disabled = false;
+                updatePendingBulkDeleteBtn();
+            }
+        }
+
+        // Recall a mistakenly sent pickup
+        async function recallPickup(pickupId, studentName) {
+            if (!confirm(`Recall pickup for ${studentName}? This will remove them from classroom displays.`)) {
+                return;
+            }
+
+            try {
+                await db.collection('pickups').doc(pickupId).delete();
+                showToast(`Recalled pickup for ${studentName}`, 'success');
+            } catch (error) {
+                console.error('Error recalling pickup:', error);
+                showToast('Failed to recall pickup', 'error');
+            }
+        }
+
+        // Initialize Listener instead of Polling
+        // setInterval(loadPendingPickups, 5000); // REMOVED
+
+
+        // Initialize with Auth Guard
+        // NOTE: Listeners are now started from the Auth Guard script at the top of this file.
+        // This prevents race conditions where listenForPickups() was called before schoolId was set.
 
         // --- PICKUP CODE LOGIC ---
 
@@ -718,71 +1557,176 @@
             // Remove spaces/dashes for clean code
             const rawCode = input.value.replace(/[\s-]/g, '');
 
-            if (!/^\d{6}$/.test(rawCode)) {
-                alert('Please enter a valid 6-digit code.');
+            // Alphanumeric, case-insensitive, 6 chars
+            if (!/^[A-Z0-9]{6}$/i.test(rawCode)) {
+                showToast('Please enter a valid 6-character code (e.g. 123456).', 'error');
                 return;
             }
 
             // Show loading
-            const originalBtnText = event.target.textContent;
-            // (Assuming event.target is the button, might be input if enter pressed. Handle gracefully)
+            const btn = document.querySelector('.pickup-input-group button.btn-primary');
+            const originalBtnText = btn.textContent;
+            btn.textContent = 'Verifying...';
+            btn.disabled = true;
 
             try {
-                const res = await fetch(`/api/pickup-code/${rawCode}`);
-                const data = await res.json();
+                // Firestore Check
+                const doc = await db.collection('pickup_codes').doc(rawCode).get();
 
-                if (res.status === 404) {
-                    alert('Invalid or expired pickup code.');
+                if (!doc.exists) {
+                    showToast('Invalid pickup code.', 'error');
+                    resetBtn(btn, originalBtnText);
                     return;
                 }
 
-                if (!res.ok) {
-                    throw new Error(data.error);
+                const data = doc.data();
+
+
+                // Check Expiration (using the correct field name)
+                if (data.expires_at && data.expires_at < Date.now()) {
+                    showToast('Pickup code expired.', 'warning');
+                    resetBtn(btn, originalBtnText);
+                    return;
                 }
 
-                const { family, students } = data;
+                // SECURITY: Verify School ID matches
+                const currentSchoolId = sessionStorage.getItem('schoolId');
+                if (data.schoolId && data.schoolId !== currentSchoolId) {
+                    showToast('Invalid code (wrong school).', 'error');
+                    resetBtn(btn, originalBtnText);
+                    return;
+                }
+
+                // Get student IDs from the pickup code (parent saves student_ids, not students)
+                const studentIds = data.student_ids || [];
+                const studentNames = data.student_names || [];
+
+                if (!studentIds || studentIds.length === 0) {
+                    showToast('Code is valid but no students were linked.', 'warning');
+                    resetBtn(btn, originalBtnText);
+                    return;
+                }
+
+                // Fetch full student data from Firestore
+                const students = [];
+                for (let i = 0; i < studentIds.length; i++) {
+                    try {
+                        const studentDoc = await db.collection('students').doc(String(studentIds[i])).get();
+                        if (studentDoc.exists) {
+                            students.push({ id: studentDoc.id, ...studentDoc.data() });
+                        } else {
+                            // Fallback to just name if student doc not found
+                            students.push({
+                                id: studentIds[i],
+                                name: studentNames[i] || 'Unknown Student',
+                                year: 0,
+                                class: 'unknown'
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Error fetching student:', e);
+                    }
+                }
 
                 if (students.length === 0) {
-                    alert('Code is valid but no students were selected by the parent.');
+                    showToast('Could not load student information.', 'error');
+                    resetBtn(btn, originalBtnText);
                     return;
                 }
 
-                // Confirmation Dialog
-                const studentNames = students.map(s => `${s.name} (Year ${s.year})`).join('\n- ');
-                const confirmMsg = `FAMILY PICKUP VALIDATED!\n\nFamily: ${family}\n\nStudents to Sign Out:\n- ${studentNames}\n\nProceed with Sign Out?`;
-
-                if (confirm(confirmMsg)) {
-                    // Sign Out Logic
-                    let successCount = 0;
-
-                    for (const student of students) {
-                        try {
-                            const pickupRes = await fetch('/api/pickups', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    student_id: student.id,
-                                    student_name: student.name,
-                                    year: student.year,
-                                    class: student.class
-                                })
-                            });
-
-                            if (pickupRes.ok) successCount++;
-                        } catch (err) {
-                            console.error(err);
-                        }
-                    }
-
-                    showSuccessMessage(`Successfully signed out ${successCount} student(s) for ${family}!`);
-                    input.value = ''; // Clear input
-                    loadPendingPickups(); // Refresh queue
-                }
+                // Show Verification Modal
+                showVerificationModal(data, students, btn, originalBtnText, input);
 
             } catch (error) {
                 console.error(error);
-                alert('Error verifying code: ' + error.message);
+                showToast('Error verifying code: ' + error.message, 'error');
+                resetBtn(btn, originalBtnText);
             }
+        }
+
+        function showVerificationModal(codeData, students, btn, originalBtnText, input) {
+            const modal = document.getElementById('verificationModal');
+            document.getElementById('vmPickerName').textContent = codeData.pickerName || 'Unknown (Legacy Code)';
+            document.getElementById('vmIdType').textContent = codeData.pickerIdType || 'Any Valid ID';
+
+            // Show Picker Image if available
+            const img = document.getElementById('vmPickerImage');
+            if (codeData.pickerImageUrl) {
+                img.src = codeData.pickerImageUrl;
+                img.style.display = 'block';
+            } else {
+                img.style.display = 'none';
+                img.src = '';
+            }
+
+            const list = document.getElementById('vmStudentList');
+            list.innerHTML = students.map(s => `
+                <li style="padding:0.75rem; border-bottom:1px solid #f1f5f9; background:white;">
+                    <div style="font-weight:600; color:#334155;">${escapeHtml(s.name)}</div>
+                    <div style="font-size:0.8rem; color:#94a3b8;">Year ${s.year} ${s.class}</div>
+                </li>
+            `).join('');
+
+            modal.style.display = 'flex';
+
+            // Handle Approval
+            document.getElementById('vmApproveBtn').onclick = async () => {
+                const approveBtn = document.getElementById('vmApproveBtn');
+                approveBtn.disabled = true;
+                approveBtn.textContent = 'Processing...';
+
+                await executePickup(students, codeData);
+
+                modal.style.display = 'none';
+                approveBtn.disabled = false;
+                approveBtn.textContent = '✅ Approve & Sign Out';
+
+                resetBtn(btn, originalBtnText);
+                input.value = ''; // Clear input
+            };
+        }
+
+        function closeVerificationModal() {
+            document.getElementById('verificationModal').style.display = 'none';
+            // We need to reset the loading state of the main button too if they cancel
+            // This part is tricky because closeVerificationModal doesn't have access to btn/originalBtnText
+            // Simple fix: reload page or just let them click validate again? 
+            // Better: Store ref to button logic or just re-enable:
+            document.querySelector('.pickup-input-group button.btn-primary').disabled = false;
+            document.querySelector('.pickup-input-group button.btn-primary').textContent = 'Validate & Sign Out';
+        }
+
+        async function executePickup(students, codeData) {
+            let successCount = 0;
+            for (const student of students) {
+                try {
+                    await db.collection('pickups').add({
+                        student_id: student.id,
+                        student_name: student.name,
+                        year: parseInt(student.year) || 0,
+                        class: student.class || 'unknown',
+                        schoolId: sessionStorage.getItem('schoolId'),
+                        timestamp: Date.now(),
+                        status: 'pending',
+                        source: 'pickup_code',
+                        // PICKER PROFILE FIELDS
+                        pickerName: codeData.pickerName || 'Unknown',
+                        pickerIdType: codeData.pickerIdType || null,
+                        pickerImageUrl: codeData.pickerImageUrl || null,
+                        pickerRole: 'Third Party (Code)',
+                        authType: 'Code Verification'
+                    });
+                    successCount++;
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+            showSuccessMessage(`Successfully signed out ${successCount} student(s)!`);
+        }
+
+        function resetBtn(btn, text) {
+            btn.textContent = text;
+            btn.disabled = false;
         }
 
         // --- CLASS MERGE FUNCTIONS ---
@@ -802,19 +1746,30 @@
         }
 
         async function initMergeDropdowns() {
-            try {
-                const res = await fetch('/api/years');
-                const years = await res.json();
+            // Static Years 7-12
+            const years = [7, 8, 9, 10, 11, 12];
 
-                ['mergeSourceYear', 'mergeHostYear'].forEach(id => {
-                    const select = document.getElementById(id);
-                    select.innerHTML = '<option value="">Year</option>';
-                    years.forEach(({ year }) => {
-                        select.innerHTML += `<option value="${year}">Year ${year}</option>`;
-                    });
+            ['mergeSourceYear', 'mergeHostYear'].forEach(id => {
+                const select = document.getElementById(id);
+                select.innerHTML = '<option value="">Year</option>';
+                years.forEach(year => {
+                    select.innerHTML += `<option value="${year}">Year ${year}</option>`;
                 });
-            } catch (e) {
-                console.error('Error loading merge years:', e);
+            });
+        }
+
+        let schoolClasses = [];
+
+        async function loadClasses() {
+            try {
+                const schoolId = sessionStorage.getItem('schoolId');
+                if (!schoolId) return;
+
+                const snapshot = await db.collection('schools').doc(schoolId).collection('classes').get();
+                schoolClasses = snapshot.docs.map(doc => doc.data());
+                console.log('Loaded classes:', schoolClasses);
+            } catch (error) {
+                console.error('Error loading classes:', error);
             }
         }
 
@@ -827,10 +1782,20 @@
             if (!year) return;
 
             try {
-                const res = await fetch(`/api/classes/${year}`);
-                const classes = await res.json();
-                classes.forEach(c => {
-                    classSelect.innerHTML += `<option value="${c.class}">${c.class.charAt(0).toUpperCase() + c.class.slice(1)}</option>`;
+                if (schoolClasses.length === 0) await loadClasses();
+
+                let classesToShow = schoolClasses.filter(c => c.year == year);
+                // Fallback if empty and no classes found (maybe migration issue?)
+                if (classesToShow.length === 0 && schoolClasses.length === 0) {
+                    // Could resort to defaults, but "Strict" means empty is correct.
+                    // But for demo safety? 
+                    // Let's stick to strict.
+                }
+
+                const uniqueNames = [...new Set(classesToShow.map(c => c.name))].sort();
+
+                uniqueNames.forEach(c => {
+                    classSelect.innerHTML += `<option value="${c}">${c}</option>`;
                 });
             } catch (e) {
                 console.error('Error loading classes:', e);
@@ -844,73 +1809,623 @@
             const hostClass = document.getElementById('mergeHostClass').value;
 
             if (!sourceYear || !sourceClass || !hostYear || !hostClass) {
-                alert('Please select all fields');
+                showToast('Please select all fields', 'warning');
                 return;
             }
 
             try {
-                const res = await fetch('/api/merge', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sourceYear, sourceClass, hostYear, hostClass })
-                });
+                // Check if already exists (optional but good)
+                const existing = await db.collection('class_merges')
+                    .where('source_year', '==', parseInt(sourceYear))
+                    .where('source_class', '==', sourceClass)
+                    .get();
 
-                const data = await res.json();
-
-                if (!res.ok) {
-                    alert('Error: ' + data.error);
+                if (!existing.empty) {
+                    showToast('This class is already merged!', 'warning');
                     return;
                 }
 
-                showSuccessMessage(`Merged Y${sourceYear} ${sourceClass} → Y${hostYear} ${hostClass}`);
-                loadActiveMerges();
+                await db.collection('class_merges').add({
+                    source_year: parseInt(sourceYear),
+                    source_class: sourceClass,
+                    source_class: sourceClass,
+                    host_year: parseInt(hostYear),
+                    host_class: hostClass,
+                    schoolId: sessionStorage.getItem('schoolId'), // Add schoolId
+                    timestamp: Date.now()
+                });
 
-                // Reset dropdowns
+                showSuccessMessage(`Merged Y${sourceYear} ${sourceClass} → Y${hostYear} ${hostClass}`);
+
+                // Clear form
                 document.getElementById('mergeSourceYear').value = '';
                 document.getElementById('mergeSourceClass').innerHTML = '<option value="">Class</option>';
                 document.getElementById('mergeHostYear').value = '';
                 document.getElementById('mergeHostClass').innerHTML = '<option value="">Class</option>';
+
             } catch (e) {
                 console.error('Error creating merge:', e);
-                alert('Error creating merge');
+                showToast('Error creating merge', 'error');
             }
         }
 
-        async function loadActiveMerges() {
-            try {
-                const res = await fetch('/api/merges');
-                const merges = await res.json();
-                const container = document.getElementById('activeMergesList');
+        let unsubscribeMerges = null;
 
-                if (merges.length === 0) {
-                    container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">No active merges</p>';
+        function loadActiveMerges() {
+            if (unsubscribeMerges) unsubscribeMerges();
+
+            const schoolId = sessionStorage.getItem('schoolId');
+
+            unsubscribeMerges = db.collection('class_merges')
+                .where('schoolId', '==', schoolId)
+                .onSnapshot(snapshot => {
+                    const container = document.getElementById('activeMergesList');
+
+                    if (snapshot.empty) {
+                        container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">No active merges</p>';
+                        return;
+                    }
+
+                    let merges = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    // Client-side sort
+                    merges.sort((a, b) => b.timestamp - a.timestamp);
+
+                    container.innerHTML = merges.map(m => {
+                        return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.5rem;">
+                            <span><strong>Y${m.source_year} ${m.source_class}</strong> → <strong>Y${m.host_year} ${m.host_class}</strong></span>
+                            <button class="btn btn-danger btn-sm" onclick="deleteMerge('${m.id}')">Un-merge</button>
+                        </div>
+                    `;
+                    }).join('');
+                }, err => console.error("Error loading merges", err));
+        }
+
+        window.deleteMerge = async function (id) {
+            if (!confirm('Cancel this merge?')) return;
+            try {
+                console.log("Attempting to delete merge:", id);
+                await db.collection('class_merges').doc(id).delete();
+                console.log("Merge deleted successfully");
+                // UI updates via listener
+            } catch (e) {
+                console.error("Error deleting merge", e);
+                showToast('Failed to un-merge: ' + e.message, 'error');
+            }
+        }
+
+        // =====================================================
+        // DROP-OFF TAB LOGIC
+        // =====================================================
+
+        let dropoffStudentData = null; // Currently looked-up student
+        let todayArrivals = []; // Today's arrival cache
+        let arrivalListenerActive = false;
+
+        // Tab Switching
+        function switchReceptionTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.reception-tab').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('tab-' + tabName).classList.add('active');
+
+            // Update panels
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+            document.getElementById('panel-' + tabName).classList.add('active');
+
+            // Start arrival listener when drop-off tab is opened
+            if (tabName === 'dropoff' && !arrivalListenerActive) {
+                startArrivalListener();
+            }
+        }
+        window.switchReceptionTab = switchReceptionTab;
+
+        // Get today's date string YYYY-MM-DD
+        function getTodayDate() {
+            const now = new Date();
+            return now.getFullYear() + '-' +
+                String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                String(now.getDate()).padStart(2, '0');
+        }
+
+        // ==========================================
+        // DROP-OFF NAME SEARCH AUTOCOMPLETE
+        // ==========================================
+        let cachedStudentsForSearch = [];
+        let nameSearchTimeout = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // We wait for auth guard to grab schoolId to load students
+        });
+
+        async function loadStudentsForNameSearch() {
+            if (cachedStudentsForSearch.length > 0) return; // Already loaded
+            const schoolId = sessionStorage.getItem('schoolId');
+            if (!schoolId) return;
+
+            try {
+                const snap = await db.collection('students').where('schoolId', '==', schoolId).get();
+                cachedStudentsForSearch = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            } catch (err) {
+                console.error('Failed to load students for auto-complete', err);
+            }
+        }
+
+        const nameSearchInput = document.getElementById('dropoffNameSearch');
+        const nameDropdown = document.getElementById('dropoffNameDropdown');
+
+        if (nameSearchInput) {
+            nameSearchInput.addEventListener('focus', loadStudentsForNameSearch);
+
+            nameSearchInput.addEventListener('input', (e) => {
+                clearTimeout(nameSearchTimeout);
+                const query = e.target.value.toLowerCase().trim();
+
+                if (query.length < 2) {
+                    nameDropdown.style.display = 'none';
                     return;
                 }
 
-                container.innerHTML = merges.map(m => `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.5rem;">
-                        <span><strong>Y${m.source_year} ${m.source_class.charAt(0).toUpperCase() + m.source_class.slice(1)}</strong> → <strong>Y${m.host_year} ${m.host_class.charAt(0).toUpperCase() + m.host_class.slice(1)}</strong></span>
-                        <button class="btn btn-danger btn-sm" onclick="deleteMerge(${m.id})">Un-merge</button>
+                // Debounce search
+                nameSearchTimeout = setTimeout(() => {
+                    const matches = cachedStudentsForSearch.filter(s =>
+                        s.name.toLowerCase().includes(query)
+                    ).slice(0, 8); // Limit to top 8
+
+                    if (matches.length === 0) {
+                        nameDropdown.innerHTML = '<div style="padding: 0.75rem 1rem; color: var(--text-muted);">No matches</div>';
+                    } else {
+                        nameDropdown.innerHTML = matches.map(s => `
+                            <div class="autocomplete-item" onclick="selectStudentFromSearch('${s.id}')">
+                                <div style="font-weight:600;">${escapeHtml(s.name)}</div>
+                                <div style="font-size:0.8rem;color:var(--text-muted);">Year ${s.year} ${s.class} • ${s.bookRentalNumber || 'N/A'}</div>
+                            </div>
+                        `).join('');
+                    }
+                    nameDropdown.style.display = 'block';
+                }, 300);
+            });
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (nameSearchInput && !nameSearchInput.contains(e.target) && !nameDropdown.contains(e.target)) {
+                nameDropdown.style.display = 'none';
+            }
+        });
+
+        async function selectStudentFromSearch(studentId) {
+            nameDropdown.style.display = 'none';
+            nameSearchInput.value = '';
+
+            const student = cachedStudentsForSearch.find(s => s.id === studentId);
+            if (!student) return;
+
+            // Ensure we aren't duplicating an already-staged student
+            if (!dropoffStudentData) dropoffStudentData = [];
+            if (dropoffStudentData.some(s => s.id === studentId)) {
+                showToast(`${student.name} is already in the list below.`, 'info');
+                return;
+            }
+
+            const listEl = document.getElementById('bulkPreviewList');
+            const actionArea = document.getElementById('bulkActionArea');
+            const confirmBtn = document.getElementById('confirmArrivalBtn');
+            const schoolId = sessionStorage.getItem('schoolId');
+            const today = getTodayDate();
+
+            // Check if already signed in today
+            const arrivalCheck = await db.collection('arrivals')
+                .where('schoolId', '==', schoolId)
+                .where('studentId', '==', studentId)
+                .where('date', '==', today)
+                .get();
+
+            let isArrived = false;
+            let timeStr = '';
+
+            if (!arrivalCheck.empty) {
+                isArrived = true;
+                const arrData = arrivalCheck.docs[0].data();
+                if (arrData.arrivalTime) {
+                    const arrTime = arrData.arrivalTime.toDate ? arrData.arrivalTime.toDate() : new Date(arrData.arrivalTime);
+                    timeStr = arrTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                }
+            } else {
+                dropoffStudentData.push(student);
+            }
+
+            // Create HTML snippet for this one student
+            const studentHtml = `
+                <div class="bulk-preview-item ${isArrived ? 'already-arrived' : ''}" id="preview-item-${student.id}">
+                    <div>
+                        <div class="sp-name">${escapeHtml(student.name)}</div>
+                        <div class="sp-detail">Year ${student.year} ${student.class} • ${student.bookRentalNumber || 'N/A'}</div>
                     </div>
-                `).join('');
-            } catch (e) {
-                console.error('Error loading merges:', e);
+                    ${isArrived ?
+                    `<div style="font-size:0.8rem; font-weight:600; color:#ef4444;text-align:right;">
+                            ⚠️ Arrived<br>${timeStr}
+                         </div>`
+                    : ''
+                }
+                </div>
+            `;
+
+            // Append to existing or replace if empty
+            if (!listEl.classList.contains('visible') || listEl.innerHTML.includes('No students found')) {
+                listEl.innerHTML = studentHtml;
+                listEl.classList.add('visible');
+            } else {
+                listEl.insertAdjacentHTML('beforeend', studentHtml);
+            }
+
+            actionArea.classList.add('visible');
+
+            // Update button count
+            const validCount = dropoffStudentData.length;
+            if (validCount > 0) {
+                confirmBtn.style.display = 'block';
+                confirmBtn.textContent = `✅ Confirm ${validCount} Arrival${validCount !== 1 ? 's' : ''}`;
             }
         }
 
-        async function deleteMerge(id) {
-            if (!confirm('Remove this merge?')) return;
+        // Lookup student(s) by book rental number(s)
+        async function lookupStudentForDropoff() {
+            const input = document.getElementById('dropoffAdmInput');
+            let rawVal = input.value.trim().toUpperCase();
+
+            if (!rawVal) {
+                showToast('Please enter at least one book rental no.', 'warning');
+                return;
+            }
+
+            // Split by comma or space and filter out empties
+            const rawNumbers = rawVal.split(/[\s,]+/).filter(n => n.length > 0);
+
+            // Deduplicate
+            const uniqueNumbers = [...new Set(rawNumbers)];
+
+            if (uniqueNumbers.length === 0) return;
+
+            const schoolId = sessionStorage.getItem('schoolId');
+            if (!schoolId) return;
+
+            const listEl = document.getElementById('bulkPreviewList');
+            const actionArea = document.getElementById('bulkActionArea');
+            const confirmBtn = document.getElementById('confirmArrivalBtn');
+            const noticeMsg = document.getElementById('dropoffNoticeMsg');
+
+            // Reset UI
+            listEl.innerHTML = '<div style="padding:1rem;text-align:center;"><div class="spinner-inline"></div> Searching...</div>';
+            listEl.classList.add('visible');
+            actionArea.classList.remove('visible');
+            dropoffStudentData = []; // Now an array
 
             try {
-                const res = await fetch(`/api/merge/${id}`, { method: 'DELETE' });
-                if (res.ok) {
-                    showSuccessMessage('Merge removed');
-                    loadActiveMerges();
+                let foundStudents = [];
+
+                // Firestore 'in' query supports max 10 items. We need to chunk.
+                const chunkSize = 10;
+                const batches = [];
+                for (let i = 0; i < uniqueNumbers.length; i += chunkSize) {
+                    const chunk = uniqueNumbers.slice(i, i + chunkSize);
+                    batches.push(
+                        db.collection('students')
+                            .where('schoolId', '==', schoolId)
+                            .where('bookRentalNumber', 'in', chunk)
+                            .get()
+                    );
                 }
-            } catch (e) {
-                console.error('Error deleting merge:', e);
+
+                const results = await Promise.all(batches);
+                results.forEach(snap => {
+                    snap.docs.forEach(doc => {
+                        foundStudents.push({ id: doc.id, ...doc.data() });
+                    });
+                });
+
+                if (foundStudents.length === 0) {
+                    listEl.innerHTML = `<div style="padding:1rem;text-align:center;color:var(--text-muted)">No students found matching those numbers.</div>`;
+                    return;
+                }
+
+                // Check today's arrivals for all found students
+                const today = getTodayDate();
+                const arrivalBatches = [];
+                const foundIds = foundStudents.map(s => s.id);
+
+                for (let i = 0; i < foundIds.length; i += chunkSize) {
+                    const chunk = foundIds.slice(i, i + chunkSize);
+                    arrivalBatches.push(
+                        db.collection('arrivals')
+                            .where('schoolId', '==', schoolId)
+                            .where('studentId', 'in', chunk)
+                            .where('date', '==', today)
+                            .get()
+                    );
+                }
+
+                const arrivalResults = await Promise.all(arrivalBatches);
+                const arrivedIds = new Set();
+                const arrivalTimes = {};
+
+                arrivalResults.forEach(snap => {
+                    snap.docs.forEach(doc => {
+                        const data = doc.data();
+                        arrivedIds.add(data.studentId);
+                        if (data.arrivalTime) {
+                            const arrTime = data.arrivalTime.toDate ? data.arrivalTime.toDate() : new Date(data.arrivalTime);
+                            arrivalTimes[data.studentId] = arrTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                        }
+                    });
+                });
+
+                // Render List
+                let html = '';
+                let validCount = 0;
+
+                foundStudents.forEach(student => {
+                    const isArrived = arrivedIds.has(student.id);
+                    if (!isArrived) {
+                        validCount++;
+                        dropoffStudentData.push(student); // Only add unarrived students to payload
+                    }
+
+                    html += `
+                        <div class="bulk-preview-item ${isArrived ? 'already-arrived' : ''}">
+                            <div>
+                                <div class="sp-name">${escapeHtml(student.name)}</div>
+                                <div class="sp-detail">Year ${student.year} ${student.class} • ${student.bookRentalNumber}</div>
+                            </div>
+                            ${isArrived ?
+                            `<div style="font-size:0.8rem; font-weight:600; color:#ef4444;text-align:right;">
+                                    ⚠️ Arrived<br>${arrivalTimes[student.id] || ''}
+                                 </div>`
+                            : ''
+                        }
+                        </div>
+                    `;
+                });
+
+                listEl.innerHTML = html;
+
+                // Show missing numbers warning if any
+                const foundNumbers = new Set(foundStudents.map(s => s.bookRentalNumber.toUpperCase()));
+                const missingNumbers = uniqueNumbers.filter(num => !foundNumbers.has(num));
+
+                let noticeHtml = '';
+                if (missingNumbers.length > 0) {
+                    noticeHtml += `⚠️ Not found: ${missingNumbers.join(', ')}<br>`;
+                }
+
+                if (validCount === 0) {
+                    noticeHtml += `All found students are already signed in today.`;
+                    confirmBtn.style.display = 'none';
+                } else {
+                    confirmBtn.style.display = 'block';
+                    confirmBtn.textContent = `✅ Confirm ${validCount} Arrival${validCount !== 1 ? 's' : ''}`;
+                }
+
+                if (noticeHtml) {
+                    noticeMsg.innerHTML = noticeHtml;
+                    noticeMsg.style.display = 'block';
+                } else {
+                    noticeMsg.style.display = 'none';
+                }
+
+                actionArea.classList.add('visible');
+
+                if (validCount > 0) confirmBtn.focus();
+
+            } catch (err) {
+                console.error('Lookup error:', err);
+                listEl.innerHTML = `<div style="padding:1rem;text-align:center;color:var(--danger)">Error: ${err.message}</div>`;
             }
         }
+        window.lookupStudentForDropoff = lookupStudentForDropoff;
+
+        // Confirm student arrival(s)
+        async function confirmArrival() {
+            if (!dropoffStudentData || dropoffStudentData.length === 0) return;
+
+            const schoolId = sessionStorage.getItem('schoolId');
+            if (!schoolId) return;
+
+            const today = getTodayDate();
+            const confirmBtn = document.getElementById('confirmArrivalBtn');
+            const oldText = confirmBtn.textContent;
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Logging...';
+
+            try {
+                // Calculate late status once for the whole batch
+                let isLate = false;
+                let minutesLate = 0;
+                try {
+                    const schoolDoc = await db.collection('schools').doc(schoolId).get();
+                    if (schoolDoc.exists) {
+                        const settings = schoolDoc.data().dropOffSettings;
+                        if (settings && settings.lateTrackingEnabled !== false && settings.startTime) {
+                            const now = new Date();
+                            const [startH, startM] = settings.startTime.split(':').map(Number);
+                            const grace = settings.gracePeriodMinutes || 0;
+                            const cutoff = new Date(now);
+                            cutoff.setHours(startH, startM + grace, 0, 0);
+
+                            if (now > cutoff) {
+                                isLate = true;
+                                minutesLate = Math.round((now - cutoff) / 60000);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Could not fetch late settings', e);
+                }
+
+                // Double check duplicates to be safe, though lookup already filtered them
+                const chunkSize = 10;
+                const arrivalBatches = [];
+                const studentIds = dropoffStudentData.map(s => s.id);
+
+                for (let i = 0; i < studentIds.length; i += chunkSize) {
+                    const chunk = studentIds.slice(i, i + chunkSize);
+                    arrivalBatches.push(
+                        db.collection('arrivals')
+                            .where('schoolId', '==', schoolId)
+                            .where('studentId', 'in', chunk)
+                            .where('date', '==', today)
+                            .get()
+                    );
+                }
+
+                const arrivalResults = await Promise.all(arrivalBatches);
+                const arrivedIds = new Set();
+                arrivalResults.forEach(snap => {
+                    snap.docs.forEach(doc => arrivedIds.add(doc.data().studentId));
+                });
+
+                // Prepare Batch
+                const batch = db.batch();
+                let processCount = 0;
+
+                for (const student of dropoffStudentData) {
+                    if (arrivedIds.has(student.id)) continue; // Skip if arrived in the last few seconds
+
+                    const ref = db.collection('arrivals').doc();
+                    batch.set(ref, {
+                        studentId: student.id,
+                        bookRentalNumber: student.bookRentalNumber || null,
+                        studentName: student.name,
+                        year: student.year,
+                        class: student.class,
+                        schoolId: schoolId,
+                        arrivalTime: firebase.firestore.FieldValue.serverTimestamp(),
+                        method: 'manual',
+                        isLate: isLate,
+                        minutesLate: minutesLate,
+                        date: today,
+                        loggedBy: auth.currentUser.uid
+                    });
+                    processCount++;
+                }
+
+                if (processCount === 0) {
+                    showToast("All students were already signed in.", "warning");
+                } else {
+                    await batch.commit();
+                    showToast(`✅ Successfully signed in ${processCount} student${processCount !== 1 ? 's' : ''}!`, 'success');
+                }
+
+                // Reset UI
+                document.getElementById('dropoffAdmInput').value = '';
+                document.getElementById('bulkPreviewList').classList.remove('visible');
+                document.getElementById('bulkActionArea').classList.remove('visible');
+                document.getElementById('dropoffAdmInput').focus();
+
+                dropoffStudentData = [];
+
+                // Optional: refresh the today's arrivals table immediately
+                // if there's a listener it might auto update, but if static we would call it.
+                // The existing code relies on a realtime listener `db.collection('arrivals')` initialized elsewhere.
+
+            } catch (err) {
+                console.error('Confirmation error:', err);
+                showToast('Error logging arrival: ' + err.message, 'error');
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = oldText;
+            }
+        }
+        window.confirmArrival = confirmArrival;
+
+        // Real-time listener for today's arrivals
+        function startArrivalListener() {
+            const schoolId = sessionStorage.getItem('schoolId');
+            if (!schoolId) return;
+
+            arrivalListenerActive = true;
+            const today = getTodayDate();
+
+            db.collection('arrivals')
+                .where('schoolId', '==', schoolId)
+                .where('date', '==', today)
+                .orderBy('arrivalTime', 'desc')
+                .onSnapshot(snapshot => {
+                    todayArrivals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderArrivalLog();
+                }, err => {
+                    console.error('Arrival listener error:', err);
+                    // Fallback: try without ordering (might need composite index)
+                    db.collection('arrivals')
+                        .where('schoolId', '==', schoolId)
+                        .where('date', '==', today)
+                        .onSnapshot(snapshot2 => {
+                            todayArrivals = snapshot2.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            // Client-side sort
+                            todayArrivals.sort((a, b) => {
+                                const tA = a.arrivalTime ? (a.arrivalTime.seconds || 0) : 0;
+                                const tB = b.arrivalTime ? (b.arrivalTime.seconds || 0) : 0;
+                                return tB - tA;
+                            });
+                            renderArrivalLog();
+                        });
+                });
+        }
+
+        function renderArrivalLog() {
+            const tbody = document.getElementById('arrivalLogBody');
+            const countEl = document.getElementById('arrivalCount');
+
+            countEl.textContent = `${todayArrivals.length} arrived`;
+
+            if (todayArrivals.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">No arrivals logged today</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = todayArrivals.map(a => {
+                let timeStr = '--:--';
+                if (a.arrivalTime) {
+                    const t = a.arrivalTime.toDate ? a.arrivalTime.toDate() : new Date(a.arrivalTime);
+                    timeStr = t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                }
+
+                const lateHtml = a.isLate
+                    ? `<span class="late-badge late">Late (${a.minutesLate || '?'}m)</span>`
+                    : `<span class="late-badge on-time">On Time</span>`;
+
+                const methodIcon = a.method === 'bus' ? '🚌' : '🚶';
+
+                return `
+                    <tr>
+                        <td style="font-family:monospace; font-weight:600; color:#6366f1;">${a.bookRentalNumber || '—'}</td>
+                        <td><strong>${escapeHtml(a.studentName)}</strong></td>
+                        <td>Y${a.year} ${a.class}</td>
+                        <td>${methodIcon} ${timeStr}</td>
+                        <td>${lateHtml}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Enter key shortcut for drop-off input
+        document.getElementById('dropoffAdmInput').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                lookupStudentForDropoff();
+            }
+        });
+
+        // Escape HTML helper (if not already defined elsewhere)
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text.toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
     </script>
 </body>
 

@@ -1,0 +1,43 @@
+{
+    "firestore": {
+        "rules": "firestore.rules",
+        "indexes": "firestore.indexes.json"
+    },
+    "storage": {
+        "rules": "storage.rules"
+    },
+    "functions": {
+        "source": "functions"
+    },
+    "hosting": {
+        "public": "public",
+        "ignore": [
+            "firebase.json",
+            "**/.*",
+            "**/node_modules/**"
+        ],
+        "cleanUrls": true,
+        "trailingSlash": false,
+        "rewrites": [
+            {
+                "source": "/display/**",
+                "destination": "/display.html"
+            },
+            {
+                "source": "/bus",
+                "destination": "/bus.html"
+            }
+        ],
+        "headers": [
+            {
+                "source": "**/*.html",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "no-cache, no-store, must-revalidate"
+                    }
+                ]
+            }
+        ]
+    }
+}

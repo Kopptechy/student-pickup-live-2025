@@ -4,7 +4,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-analytics-compat.js"></script>
+
+    <!-- Firebase Config -->
+    <script src="/firebase-config.js"></script>
+
+    <!-- Auth Guard for Parent Portal -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            auth.onAuthStateChanged(async user => {
+                if (!user) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                // Verify parent/admin/superAdmin role
+                try {
+                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    const userData = userDoc.data();
+                    const role = userData ? userData.role : null;
+
+                    if (!userDoc.exists || !['parent', 'admin', 'superAdmin'].includes(role)) {
+                        alert('Access Denied: Parents Only');
+                        await auth.signOut();
+                        window.location.href = 'login.html';
+                    } else {
+                        // Store context
+                        if (userData.schoolId) {
+                            sessionStorage.setItem('schoolId', userData.schoolId);
+
+                            // BRANDING
+                            db.collection('schools').doc(userData.schoolId).get().then(doc => {
+                                if (doc.exists) {
+                                    const schoolData = doc.data();
+
+                                    // Check Suspension
+                                    if (schoolData.status === 'suspended') {
+                                        alert('⚠️ Your school account is suspended. Please contact the school administration.');
+                                        auth.signOut();
+                                        window.location.href = 'login.html';
+                                        return;
+                                    }
+
+                                    // Update Title & Header
+                                    if (schoolData.name) {
+                                        document.title = `${schoolData.name} - Parent Portal`;
+                                        const dashTitle = document.getElementById('dashboardTitle');
+                                        if (dashTitle) dashTitle.textContent = schoolData.name;
+                                    }
+
+                                    // Apply Premium Branding
+                                    if (schoolData.subscriptionPlan === 'premium') {
+                                        window.applyBranding(schoolData);
+                                    }
+                                }
+                            });
+                        }
+                        if (userData.children) sessionStorage.setItem('childrenIds', JSON.stringify(userData.children));
+                        sessionStorage.setItem('userRole', role);
+
+                        // Auth Checked - Logic handles showing dashboard later
+                        // But we need to ensure the container is visible if we aren't redirecting
+                        // Actually, showDashboard() will likely show it? 
+                        // It's safest to simply NOT redirect. The script at bottom will run showDashboard().
+                    }
+                } catch (err) {
+                    console.error("Auth check failed", err);
+                    window.location.href = 'login.html';
+                }
+            });
+        });
+    </script>
+
     <title>Parent Portal - Pickup System</title>
+    <link rel="icon" type="image/png" href="images/logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -23,7 +101,8 @@
             font-family: 'Inter', sans-serif;
             margin: 0;
             padding: 0;
-            background-color: var(--bg-color);
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            /* background-image removed to support multi-tenancy */
             color: var(--text-main);
             min-height: 100vh;
             display: flex;
@@ -186,15 +265,660 @@
         .hidden {
             display: none !important;
         }
+
+        /* SELF SIGN-OUT STYLES */
+        .child-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.3s;
+        }
+
+        .child-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .child-card.pending {
+            background: linear-gradient(135deg, #fef3c7, #fef9e7);
+            border-color: #f59e0b;
+        }
+
+        .child-card.released {
+            background: linear-gradient(135deg, #d1fae5, #ecfdf5);
+            border-color: #10b981;
+        }
+
+        .child-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .child-name {
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--text-main);
+        }
+
+        .child-details {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .child-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .btn-signout {
+            flex: 1;
+            padding: 0.6rem 1rem;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-signout:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-signout:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-badge.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-badge.released {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: #f59e0b;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+        }
+
+        /* TOAST NOTIFICATIONS */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            min-width: 280px;
+            max-width: 350px;
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            color: white;
+            font-weight: 500;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: toastSlideIn 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        .toast.warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .toast.info {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+        }
+
+        .toast-icon {
+            font-size: 1.3rem;
+        }
+
+        .toast-message {
+            flex: 1;
+            font-size: 0.9rem;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        .toast-close:hover {
+            opacity: 1;
+        }
+
+        /* LOADING OVERLAY */
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #f3f4f6;
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes toastSlideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+        }
+
+        /* Hidden utility class */
+        .hidden {
+            display: none !important;
+        }
+
+        /* ========== RESPONSIVE LAYOUT ========== */
+
+        /* Mobile Bottom Navigation */
+        .bottom-nav {
+            display: flex;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            padding: 0.5rem 0;
+            padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+            z-index: 1000;
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .bottom-nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.5rem;
+            text-decoration: none;
+            color: #6b7280;
+            font-size: 0.7rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: color 0.2s;
+            border: none;
+            background: none;
+        }
+
+        .bottom-nav-item.active {
+            color: var(--primary);
+        }
+
+        .bottom-nav-item:hover {
+            color: var(--primary);
+        }
+
+        .bottom-nav-icon {
+            font-size: 1.25rem;
+        }
+
+        /* Desktop Sidebar */
+        .desktop-sidebar {
+            display: none;
+        }
+
+        .desktop-layout {
+            display: block;
+        }
+
+        /* Desktop: Show sidebar, hide bottom nav */
+        @media (min-width: 768px) {
+            body {
+                align-items: flex-start;
+                justify-content: flex-start;
+                background: #f3f4f6;
+                /* Light background for content area */
+            }
+
+            .bottom-nav {
+                display: none !important;
+            }
+
+            /* Sidebar - fixed on left */
+            .desktop-sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 260px;
+                display: flex;
+                flex-direction: column;
+                background: white;
+                border-right: 1px solid var(--border);
+                padding: 1.5rem 1rem;
+                gap: 0.5rem;
+                z-index: 100;
+                box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+            }
+
+            .sidebar-header {
+                padding: 0.5rem;
+                margin-bottom: 1rem;
+                border-bottom: 1px solid var(--border);
+                padding-bottom: 1rem;
+            }
+
+            .sidebar-header img {
+                height: 36px;
+                margin-bottom: 0.5rem;
+            }
+
+            .sidebar-school-name {
+                font-weight: 700;
+                color: var(--primary);
+                font-size: 0.95rem;
+            }
+
+            .sidebar-nav-item {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                padding: 0.75rem 1rem;
+                border-radius: 8px;
+                color: #374151;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+                text-decoration: none;
+                border: none;
+                background: none;
+                width: 100%;
+                text-align: left;
+                font-size: 0.95rem;
+            }
+
+            .sidebar-nav-item:hover {
+                background: #f3f4f6;
+                color: var(--primary);
+            }
+
+            .sidebar-nav-item.active {
+                background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+                color: var(--primary);
+            }
+
+            .sidebar-nav-icon {
+                font-size: 1.25rem;
+                width: 1.5rem;
+                text-align: center;
+            }
+
+            .sidebar-spacer {
+                flex: 1;
+            }
+
+            /* Content - offset by sidebar width */
+            .container {
+                margin-left: 260px;
+                max-width: 700px;
+                padding: 2rem;
+                min-height: 100vh;
+            }
+
+            #dashboardCard {
+                max-width: none;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            }
+
+            /* Hide header logout on desktop (it's in sidebar) */
+            .dashboard-header button[onclick="logout()"] {
+                display: none;
+            }
+        }
+
+        /* Add bottom padding on mobile for bottom nav */
+        @media (max-width: 767px) {
+            #dashboardCard {
+                padding-bottom: 5rem;
+            }
+        }
+
+        /* History Modal Styles */
+        .history-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            padding: 1rem;
+        }
+
+        .history-modal.active {
+            display: flex;
+        }
+
+        .history-content {
+            background: white;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .history-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .history-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            color: var(--text-main);
+        }
+
+        .history-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 0.25rem;
+        }
+
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem 0;
+        }
+
+        .history-item {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .history-details {
+            flex: 1;
+        }
+
+        .history-child {
+            font-weight: 600;
+            color: var(--text-main);
+            font-size: 0.95rem;
+        }
+
+        .history-picker {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+        }
+
+        .history-time {
+            font-size: 0.8rem;
+            color: #9ca3af;
+            margin-top: 0.25rem;
+        }
+
+        .history-badge {
+            font-size: 0.7rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            background: #fef3c7;
+            color: #92400e;
+            font-weight: 600;
+        }
+
+        .history-empty {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: #6b7280;
+        }
+
+        .history-empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Mobile Menu Dropdown */
+        .menu-dropdown {
+            position: fixed;
+            bottom: 70px;
+            right: 1rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            min-width: 180px;
+            display: none;
+            z-index: 1001;
+            overflow: hidden;
+            animation: menuSlideUp 0.2s ease;
+        }
+
+        .menu-dropdown.active {
+            display: block;
+        }
+
+        @keyframes menuSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .menu-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            color: #374151;
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            transition: background 0.2s;
+        }
+
+        .menu-dropdown-item:hover {
+            background: #f3f4f6;
+        }
+
+        .menu-dropdown-item:not(:last-child) {
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .menu-dropdown-item.logout {
+            color: #ef4444;
+        }
+
+        .menu-dropdown-icon {
+            font-size: 1.1rem;
+            width: 1.5rem;
+            text-align: center;
+        }
+
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: transparent;
+            z-index: 1000;
+            display: none;
+        }
+
+        .menu-overlay.active {
+            display: block;
+        }
     </style>
 </head>
 
 <body>
+    <!-- Pickup History Modal -->
+    <div id="historyModal" class="history-modal" onclick="if(event.target === this) closeHistoryModal()">
+        <div class="history-content">
+            <div class="history-header">
+                <h3>📜 Pickup History</h3>
+                <button class="history-close" onclick="closeHistoryModal()">×</button>
+            </div>
+            <div class="history-list" id="historyList">
+                <div class="history-empty">
+                    <div class="history-empty-icon">📋</div>
+                    <p>Loading pickup history...</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <div class="container">
-        <!-- Login Form -->
+    <!-- LOADING OVERLAY -->
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <p style="margin-top:1rem; color:#6b7280; font-weight:500;">Loading Portal...</p>
+    </div>
+
+    <!-- Main Container (Hidden Initially) -->
+    <div class="container" style="display:none;" id="mainContainer">
+        <!-- Toast Container -->
+        <div id="toastContainer" class="toast-container"></div>
+
         <div id="loginCard" class="card">
-            <div class="logo">👨‍👩‍👧‍👦CDSS School Pickup</div>
+            <div class="logo">
+                <img src="images/logo.png" alt="SurePickup"
+                    style="height: 48px; vertical-align: middle; margin-right: 8px;">
+                Parent Portal
+            </div>
             <div id="loginError" class="error-message"></div>
 
             <form id="loginForm">
@@ -215,7 +939,11 @@
 
         <!-- Change Password Modal (Forced) -->
         <div id="changePasswordCard" class="card hidden">
-            <div class="logo">🔒 Change Password</div>
+            <div class="logo">
+                <img src="images/logo.png" alt="SurePickup"
+                    style="height: 40px; vertical-align: middle; margin-right: 8px;">
+                Change Password
+            </div>
             <p style="text-align:center; color:var(--text-muted); margin-bottom:1.5rem;">
                 You are using a temporary password. Please set a new secure password to continue.
             </p>
@@ -239,7 +967,11 @@
         <div id="signupCard" class="card hidden">
             <!-- Step 1: Enter Invite Code -->
             <div id="step1">
-                <div class="logo">Welcome to CDSS Pickup</div>
+                <div class="logo">
+                    <img src="images/logo.png" alt="SurePickup"
+                        style="height: 48px; vertical-align: middle; margin-right: 8px;">
+                    Welcome to SurePickup
+                </div>
                 <p style="text-align:center; color:#666; margin-bottom:1.5rem;">Enter the 6-character onboarding code
                     sent to your email.</p>
 
@@ -255,7 +987,11 @@
 
             <!-- Step 2: Confirm & Create Account -->
             <div id="step2" class="hidden">
-                <div class="logo">✨ Setup Account</div>
+                <div class="logo">
+                    <img src="images/logo.png" alt="SurePickup"
+                        style="height: 40px; vertical-align: middle; margin-right: 8px;">
+                    Setup Account
+                </div>
 
                 <div
                     style="background:#f0f9ff; padding:1rem; border-radius:8px; margin-bottom:1.5rem; border:1px solid #bae6fd;">
@@ -277,6 +1013,11 @@
                         <input type="password" id="createPassword" required minlength="6"
                             placeholder="Min. 6 characters">
                     </div>
+                    <div class="form-group">
+                        <label>Confirm Password</label>
+                        <input type="password" id="confirmCreatePassword" required minlength="6"
+                            placeholder="Re-enter password">
+                    </div>
 
                     <button type="submit" class="btn-primary">Create Account</button>
                 </form>
@@ -287,35 +1028,458 @@
             <a class="text-link" onclick="toggleAuth('login')" style="margin-top:1.5rem;">Back to Sign In</a>
         </div>
 
+        <!-- Picker Details Modal -->
+        <div id="pickerDetailsModal" class="card hidden"
+            style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); z-index:2000; width:90%; max-width:400px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
+            <div class="logo" style="margin-bottom:1rem; font-size:1.25rem;">📝 Picker Details</div>
+            <p style="text-align:center; color:#6b7280; margin-bottom:1.5rem; font-size:0.9rem;">
+                Please provide details of the person picking up your child.
+            </p>
+
+            <form id="pickerDetailsForm">
+                <div>
+                    <label style="display:block; margin-bottom:0.5rem; font-weight:500;">Who is picking up?</label>
+                    <input type="text" id="pickerName" class="form-input" placeholder="Enter full name (matches ID)"
+                        style="width:100%; padding:0.8rem; border:1px solid #ddd; border-radius:6px;">
+                </div>
+
+                <!-- Optional Image Upload -->
+                <div style="margin-top:1rem;">
+                    <label style="display:block; margin-bottom:0.5rem; font-weight:500;">Picker Photo (Optional)</label>
+                    <input type="file" id="pickerImage" accept="image/*" class="form-input"
+                        style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px; font-size:0.9rem;">
+                    <p style="font-size:0.8rem; color:#666; margin-top:4px;">Help reception verify identity faster.</p>
+                </div>
+                <div class="form-group">
+                    <label>ID Type to be presented</label>
+                    <select id="pickerIdType"
+                        style="width:100%; padding:0.75rem; border:1px solid var(--border); border-radius:6px; background:white;">
+                        <option value="">Select ID Type...</option>
+                        <option value="Drivers License">Driver's License</option>
+                        <option value="NIN Slip">NIN Slip</option>
+                        <option value="International Passport">International Passport</option>
+                        <option value="Voters Card">Voter's Card</option>
+                        <option value="Work ID">Work ID</option>
+                        <option value="School ID">School Pick-up Card</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top:1.5rem;">
+                    <button type="button" class="btn-primary" style="background:#ef4444; flex:1;"
+                        onclick="closePickerModal()">Cancel</button>
+                    <button type="submit" class="btn-primary" style="flex:1;">Generate Code</button>
+                </div>
+            </form>
+        </div>
+        <div id="modalBackdrop" class="hidden"
+            style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1999;">
+        </div>
+
+        <!-- Pickup Receipt Page (Full Screen) -->
+        <div id="pickupReceiptPage"
+            style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:linear-gradient(180deg, #f0fdf4 0%, #dcfce7 50%, #bbf7d0 100%); z-index:3000; overflow-y:auto;">
+
+            <div
+                style="min-height:100%; display:flex; flex-direction:column; align-items:center; padding:2rem 1.5rem; box-sizing:border-box;">
+
+                <!-- Logo -->
+                <img src="images/logo.png" alt="SurePickup" style="height:50px; margin-bottom:1rem;">
+
+                <!-- Pulsating Success Circle -->
+                <div class="receipt-pulse-container">
+                    <div class="receipt-pulse-ring"></div>
+                    <div class="receipt-checkmark">
+                        <span style="font-size:3rem; color:white;">✓</span>
+                    </div>
+                </div>
+
+                <!-- Header -->
+                <h1
+                    style="color:#065f46; font-size:1.75rem; font-weight:800; margin:1rem 0 0.25rem; text-align:center;">
+                    Pickup Confirmed
+                </h1>
+                <p style="color:#059669; font-size:0.95rem; margin:0 0 1.5rem; text-align:center;">
+                    Show this receipt to the teacher on duty
+                </p>
+
+                <!-- Date & Time Card -->
+                <div
+                    style="background:white; border-radius:16px; padding:1rem 1.5rem; margin-bottom:1rem; box-shadow:0 4px 12px rgba(0,0,0,0.08); text-align:center; width:100%; max-width:320px;">
+                    <div id="receiptDate"
+                        style="font-size:1.1rem; font-weight:700; color:#1f2937; margin-bottom:0.25rem;">
+                        Friday, 17th January 2026
+                    </div>
+                    <div id="receiptTime"
+                        style="font-size:2rem; font-weight:800; color:#059669; font-variant-numeric:tabular-nums;">
+                        12:02 PM
+                    </div>
+                </div>
+
+                <!-- Parent Info Card -->
+                <div
+                    style="background:white; border-radius:16px; padding:1rem 1.5rem; margin-bottom:1rem; box-shadow:0 4px 12px rgba(0,0,0,0.08); width:100%; max-width:320px;">
+                    <div
+                        style="font-size:0.75rem; color:#6b7280; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.5rem;">
+                        Picked Up By
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.75rem;">
+                        <!-- Parent Photo -->
+                        <div id="receiptParentPhoto"
+                            style="width:56px; height:56px; border-radius:50%; background:#f1f5f9; display:flex; align-items:center; justify-content:center; overflow:hidden; border:2px solid #e2e8f0; flex-shrink:0;">
+                            <!-- JS populated -->
+                        </div>
+                        <div>
+                            <div id="receiptParentName" style="font-size:1.1rem; font-weight:700; color:#1f2937;">
+                                Mrs. Adebayo
+                            </div>
+                            <div id="receiptDesignation" style="font-size:0.85rem; color:#059669; font-weight:600;">
+                                Mother
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Children List Card -->
+                <div
+                    style="background:white; border-radius:16px; padding:1rem 1.5rem; margin-bottom:1.5rem; box-shadow:0 4px 12px rgba(0,0,0,0.08); width:100%; max-width:320px;">
+                    <div
+                        style="font-size:0.75rem; color:#6b7280; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.75rem;">
+                        Children Signed Out
+                    </div>
+                    <div id="receiptChildrenList" style="display:flex; flex-direction:column; gap:0.5rem;">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Live Clock (Anti-Screenshot) -->
+                <div style="font-size:0.8rem; color:#6b7280; margin-bottom:1rem;">
+                    Current Time: <span id="receiptLiveClock"
+                        style="font-weight:600; font-variant-numeric:tabular-nums;">--:--:--</span>
+                </div>
+
+                <!-- Close Button -->
+                <button onclick="closeReceipt()"
+                    style="width:100%; max-width:320px; padding:1rem; background:linear-gradient(135deg, #10b981, #059669); color:white; border:none; border-radius:12px; font-size:1rem; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                    ✕ Close Receipt
+                </button>
+
+                <!-- Footer -->
+                <div style="margin-top:2rem; text-align:center; color:#6b7280; font-size:0.75rem;">
+                    SurePickup • Secure Student Pickup System
+                </div>
+            </div>
+        </div>
+
+        <!-- Receipt Pulse Animation CSS -->
+        <style>
+            .receipt-pulse-container {
+                position: relative;
+                width: 100px;
+                height: 100px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+
+            .receipt-pulse-ring {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                border-radius: 50%;
+                background: rgba(16, 185, 129, 0.3);
+                animation: receiptPulse 2s ease-in-out infinite;
+            }
+
+            .receipt-checkmark {
+                width: 80px;
+                height: 80px;
+                background: linear-gradient(135deg, #10b981, #059669);
+                border-radius: 50%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+                z-index: 1;
+            }
+
+            @keyframes receiptPulse {
+                0% {
+                    transform: scale(1);
+                    opacity: 0.8;
+                }
+
+                50% {
+                    transform: scale(1.3);
+                    opacity: 0;
+                }
+
+                100% {
+                    transform: scale(1);
+                    opacity: 0;
+                }
+            }
+        </style>
+
+        <!-- Add/Edit Picker Modal -->
+        <div id="addPickerModal" class="card hidden"
+            style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); z-index:2000; width:90%; max-width:400px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
+            <div class="logo" style="margin-bottom:1rem; font-size:1.25rem;">👥 <span id="pickerModalTitle">Add
+                    Picker</span></div>
+            <p style="text-align:center; color:#6b7280; margin-bottom:1.5rem; font-size:0.9rem;">
+                Save details of authorized pickup persons for quick code generation.
+            </p>
+
+            <form id="addPickerForm">
+                <input type="hidden" id="editingPickerId">
+
+                <div class="form-group">
+                    <label>Picker's Full Name</label>
+                    <input type="text" id="newPickerName" placeholder="Enter full name (as on ID)" required
+                        style="width:100%; padding:0.8rem; border:1px solid #ddd; border-radius:6px;">
+                </div>
+
+                <div class="form-group">
+                    <label>ID Type to be presented</label>
+                    <select id="newPickerIdType" required
+                        style="width:100%; padding:0.75rem; border:1px solid var(--border); border-radius:6px; background:white;">
+                        <option value="">Select ID Type...</option>
+                        <option value="Drivers License">Driver's License</option>
+                        <option value="NIN Slip">NIN Slip</option>
+                        <option value="International Passport">International Passport</option>
+                        <option value="Voters Card">Voter's Card</option>
+                        <option value="Work ID">Work ID</option>
+                        <option value="School ID">School Pick-up Card</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Picker Photo</label>
+                    <input type="file" id="newPickerPhoto" accept="image/*"
+                        style="width:100%; padding:0.5rem; border:1px solid #ddd; border-radius:6px; font-size:0.9rem;">
+                    <p style="font-size:0.8rem; color:#666; margin-top:4px;">Upload a clear photo for verification.
+                    </p>
+                    <div id="pickerPhotoPreview" style="display:none; margin-top:0.5rem; text-align:center;">
+                        <img id="pickerPreviewImg" src="" alt="Preview"
+                            style="max-width:100px; max-height:100px; border-radius:8px; border:2px solid #ddd;">
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top:1.5rem;">
+                    <button type="button" class="btn-primary" style="background:#ef4444; flex:1;"
+                        onclick="closeAddPickerModal()">Cancel</button>
+                    <button type="submit" class="btn-primary" style="flex:1;" id="savePickerBtn">Save
+                        Picker</button>
+                </div>
+            </form>
+        </div>
+
+
         <!-- Dashboard -->
         <div id="dashboardCard" class="card hidden">
             <div class="dashboard-header">
                 <div>
-                    <h2 style="margin:0">Pickup Dashboard</h2>
-                    <small id="userEmailDisplay" style="color:var(--text-muted)"></small>
+                    <div>
+                        <h2 style="margin:0; color:var(--primary); display: flex; align-items: center; gap: 10px;">
+                            <img src="images/logo.png" id="schoolLogo" alt="SurePickup" style="height: 40px;">
+                            <span id="dashboardTitle">SurePickup Dashboard</span>
+                        </h2>
+                    </div>
                 </div>
                 <button onclick="logout()"
-                    style="background:none;border:none;color:var(--primary);cursor:pointer">Logout</button>
+                    style="background:none;border:none;color:var(--primary);cursor:pointer;font-weight:500">Logout</button>
             </div>
 
-            <p>Select children to pick up today:</p>
+            <!-- Warm Greeting Section -->
+            <div id="greetingSection"
+                style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); padding: 1.25rem; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid #bbf7d0;">
+                <div id="greetingMessage" style="font-size: 1.25rem; font-weight: 600; color: #166534;">👋 Good
+                    afternoon!</div>
+                <div id="parentNameDisplay" style="font-size: 1rem; color: #15803d; margin-top: 0.25rem;">Mrs.
+                    Parent
+                </div>
+                <div style="font-size: 0.875rem; color: #22c55e; margin-top: 0.5rem;">Ready to pick up your little
+                    ones?
+                </div>
+            </div>
 
-            <ul id="childrenList" class="student-list">
-                <!-- Students populated here -->
-            </ul>
+            <p style="font-weight: 500; color: var(--text-muted); margin-bottom: 0.75rem;">Your Children:</p>
 
-            <button onclick="generateCode()" class="btn-primary">Generate Pickup Code</button>
+            <!-- Bulk Sign-Out Controls -->
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; padding: 0.75rem 1rem; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0; gap: 1rem;">
+                <label
+                    style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 600; color: #166534; flex-shrink: 0;">
+                    <input type="checkbox" id="selectAllChildren" onchange="toggleSelectAll()"
+                        style="width: 1.25rem; height: 1.25rem;">
+                    Select All
+                </label>
+                <button id="bulkSignOutBtn" onclick="signOutSelected()" class="btn-signout"
+                    style="padding: 0.5rem 1rem; font-size: 0.9rem; white-space: nowrap; display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0;"
+                    disabled>
+                    📍 Sign Out
+                    <span id="selectedCount"
+                        style="background: rgba(255,255,255,0.3); padding: 0.15rem 0.5rem; border-radius: 12px; font-weight: 700; min-width: 1.5rem; text-align: center;">0</span>
+                </button>
+            </div>
 
-            <div id="codeDisplay" class="generated-code-display">
-                <h3>Today's Pickup Code</h3>
-                <div id="codeValue" class="code-number">--- ---</div>
-                <p class="timer">Valid until midnight</p>
-                <p style="font-size:0.875rem; color:var(--text-muted)">Show this code to reception</p>
+            <!-- Children Cards with Checkboxes -->
+            <div id="childrenCards">
+                <!-- Populated by JS -->
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--border); margin: 1.5rem 0;">
+
+            <!-- My Pickers Section -->
+            <div
+                style="background: linear-gradient(135deg, #fefce8, #fef3c7); border: 2px solid #f59e0b; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.5rem;">👥</span>
+                        <div>
+                            <div style="font-weight: 700; color: #92400e; font-size: 1.1rem;">My Pickers</div>
+                            <div style="font-size: 0.85rem; color: #b45309;">Pre-register authorized pickup persons
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="openAddPickerModal()" class="btn-primary"
+                        style="padding: 0.5rem 1rem; font-size: 0.85rem; background: linear-gradient(135deg, #f59e0b, #d97706);">
+                        + Add Picker
+                    </button>
+                </div>
+
+                <div id="pickersContainer" style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+                    <div style="color: #92400e; font-size: 0.9rem; padding: 1rem; text-align: center; width: 100%;">
+                        Loading pickers...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Version Footer -->
+            <div style="text-align:center; margin-bottom:20px; color:#9ca3af; font-size:0.75rem;">
+                SurePickup Parent App • v1.1
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--border); margin: 1.5rem 0;">
+
+            <!-- Pickup Code Generation - Prominent Card -->
+            <div
+                style="background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 2px solid #3b82f6; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                    <span style="font-size: 1.5rem;">🎟️</span>
+                    <div>
+                        <div style="font-weight: 700; color: #1e40af; font-size: 1.1rem;">Generate Pickup Code</div>
+                        <div style="font-size: 0.85rem; color: #3b82f6;">Send code to grandparents, nannies, or
+                            drivers
+                        </div>
+                    </div>
+                </div>
+
+                <ul id="childrenList" class="student-list"
+                    style="margin-bottom: 1rem; background: white; border-radius: 8px;">
+                    <!-- Checkboxes populated by JS -->
+                </ul>
+
+                <!-- Picker Selection -->
+                <div style="margin-bottom: 1rem;">
+                    <label
+                        style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-weight: 500; color: #1e40af;">
+                        <input type="checkbox" id="useOneTimePicker" onchange="togglePickerMode()" style="width: auto;">
+                        Use one-time picker (enter details manually)
+                    </label>
+
+                    <!-- Saved Picker Selector -->
+                    <div id="savedPickerSelector">
+                        <select id="selectedPickerId"
+                            style="width:100%; padding:0.75rem; border:1px solid #3b82f6; border-radius:6px; background:white; font-size:0.95rem;">
+                            <option value="">-- Select a saved picker --</option>
+                        </select>
+                        <p style="font-size:0.8rem; color:#3b82f6; margin-top:4px;">
+                            💡 Tip: Save pickers in "My Pickers" section above for quick access.
+                        </p>
+                    </div>
+                </div>
+
+                <button onclick="generateCode()" class="btn-primary"
+                    style="width: 100%; background: linear-gradient(135deg, #3b82f6, #2563eb);">
+                    🎟️ Generate Code
+                </button>
+
+                <div id="codeDisplay" class="generated-code-display">
+                    <h3>Today's Pickup Code</h3>
+                    <div style="display:flex; align-items:center; justify-content:center; gap:10px; margin: 10px 0;">
+                        <div id="codeValue" class="code-number" style="margin:0;">--- ---</div>
+                        <button onclick="copyToClipboard(document.getElementById('codeValue').innerText)"
+                            class="btn-secondary"
+                            style="padding: 5px 10px; font-size: 0.9rem; display:flex; align-items:center; gap:5px;">
+                            📋 Copy
+                        </button>
+                    </div>
+                    <p class="timer"
+                        style="display:inline-block; background:linear-gradient(135deg, #ef4444, #f97316); color:white; padding:0.5rem 1rem; border-radius:20px; font-weight:600; font-size:0.9rem; margin:0.5rem 0;">
+                        ⏰ Valid for today only</p>
+                    <p style="font-size:0.875rem; color:var(--text-muted)">Share this code with whoever is picking
+                        up
+                    </p>
+                </div>
+            </div>
+
+            <!-- TESTING: Reset Button -->
+            <div style="text-align: center; margin-top: 2rem;">
+                <button onclick="resetStatus()"
+                    style="background:none; border:none; color:var(--text-muted); cursor:pointer; text-decoration:underline;">
+                    🔄 Reset Status (Testing)
+                </button>
             </div>
         </div>
     </div>
 
     <script>
+        // --- Utility ---
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Clean name - remove quotes and trim
+        function cleanName(name) {
+            if (!name) return '';
+            return name.replace(/^["']|["']$/g, '').trim();
+        }
+
+        // Show toast notification (replaces alert())
+        function showToast(message, type = 'info') {
+            const icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: 'ℹ️'
+            };
+
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || icons.info}</span>
+                <span class="toast-message">${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+            `;
+
+            container.appendChild(toast);
+
+            // Auto-remove after 4 seconds
+            setTimeout(() => {
+                toast.style.animation = 'toastSlideOut 0.3s ease forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
         // --- Auth Logic ---
 
         function toggleAuth(mode) {
@@ -327,39 +1491,48 @@
         }
 
         function showForgotPassword() {
-            alert("Please contact the School Admin to reset your password.");
+            showToast('Please contact the School Admin to reset your password.', 'info');
         }
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
+            const err = document.getElementById('loginError');
 
             try {
-                const res = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    if (data.mustChangePassword) {
-                        // Force password change flow
-                        showChangePasswordUI(data.userId);
-                    } else {
-                        showDashboard(data.user);
-                    }
-                } else {
-                    const err = document.getElementById('loginError');
-                    err.textContent = data.error;
-                    err.style.display = 'block';
-                }
+                await auth.signInWithEmailAndPassword(email, password);
+                // Auth state listener will handle redirect/dashboard
             } catch (error) {
                 console.error(error);
-                const err = document.getElementById('loginError');
-                err.textContent = "Connection error";
+                err.textContent = "Invalid email or password";
                 err.style.display = 'block';
+            }
+        });
+
+        // Parent Auth Guard & State Handler
+        auth.onAuthStateChanged(async user => {
+            if (user) {
+                console.log("Parent logged in:", user.email);
+                // Check if we need to load dashboard
+                try {
+                    const doc = await db.collection('users').doc(user.uid).get();
+                    if (doc.exists) {
+                        const userData = doc.data();
+                        showDashboard(userData);
+                    } else {
+                        // Rare case: Auth exists but Firestore doc missing
+                        console.error("User profile not found");
+                        await auth.signOut();
+                        showToast('Account error: Profile not found.', 'error');
+                    }
+                } catch (e) {
+                    console.error("Error loading profile:", e);
+                }
+            } else {
+                // Stay on login page
+                document.getElementById('dashboardCard').classList.add('hidden');
+                document.getElementById('loginCard').classList.remove('hidden');
             }
         });
 
@@ -391,7 +1564,7 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    alert("Password updated successfully! Please sign in with your new password.");
+                    showToast('Password updated successfully! Please sign in with your new password.', 'success');
                     // Reset to login screen
                     document.getElementById('changePasswordCard').classList.add('hidden');
                     document.getElementById('loginCard').classList.remove('hidden');
@@ -412,6 +1585,8 @@
         let currentInviteCode = null;
 
         // Step 1: Validate Code
+        // Step 1: Validate Code
+        // Step 1: Validate Code
         document.getElementById('inviteForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const code = document.getElementById('inviteCode').value.trim();
@@ -423,33 +1598,49 @@
             btn.textContent = 'Verifying...';
 
             try {
-                const res = await fetch('/api/auth/validate-invite', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code })
-                });
+                const doc = await db.collection('parent_invites').doc(code).get();
 
-                const data = await res.json();
+                if (doc.exists) {
+                    const data = doc.data();
 
-                if (res.ok) {
+                    if (data.status === 'used') {
+                        throw new Error("This invite code has already been used.");
+                    }
+                    if (data.expires_at < Date.now()) {
+                        throw new Error("This invite code has expired.");
+                    }
+
                     // Success: Show Step 2
                     currentInviteCode = code;
+                    window.currentInviteData = data;
+
                     document.getElementById('step1').classList.add('hidden');
                     document.getElementById('step2').classList.remove('hidden');
 
-                    document.getElementById('welcomeName').textContent = `Welcome, ${data.name} (${data.role})`;
-                    document.getElementById('welcomeEmail').textContent = data.email;
+                    document.getElementById('welcomeName').textContent = `Welcome, ${data.parent_name} (${data.role})`;
+                    document.getElementById('welcomeEmail').textContent = data.parent_email || '';
+
+                    // Load Students for Confirmation (Data embedded in invite now)
+                    let studentsList = data.student_snapshots || [];
+
+                    // Fallback for old invites (unlikely but safe)
+                    if (!studentsList.length && data.student_ids) {
+                        console.warn("Using legacy invite format, fetch might fail due to permissions.");
+                        // We can't fetch if no rules allow it. 
+                        // Just show IDs or generic text if strictly blocked.
+                        // But for now, we rely on new invites.
+                    }
 
                     // Render Children
                     const list = document.getElementById('onboardChildrenList');
-                    if (data.students.length === 0) {
-                        list.innerHTML = '<div style="color:red; font-size:0.9rem;">No children linked. Please contact admin.</div>';
+                    if (studentsList.length === 0) {
+                        list.innerHTML = '<div style="color:red; font-size:0.9rem;">No children found for this invite.</div>';
                     } else {
-                        list.innerHTML = data.students.map(s => `
+                        list.innerHTML = studentsList.map(s => `
                             <label style="display:flex; align-items:center; padding:0.5rem; background:white; border-bottom:1px solid #eee;">
                                 <input type="checkbox" value="${s.id}" checked class="onboard-child-cb" style="width:auto; margin-right:0.5rem;">
                                 <div>
-                                    <div style="font-weight:600; font-size:0.9rem;">${s.name}</div>
+                                    <div style="font-weight:600; font-size:0.9rem;">${escapeHtml(s.name)}</div>
                                     <div style="font-size:0.8rem; color:#666;">Year ${s.year} ${s.class}</div>
                                 </div>
                             </label>
@@ -457,11 +1648,11 @@
                     }
 
                 } else {
-                    err.textContent = data.error;
+                    err.textContent = "Invalid invite code.";
                     err.style.display = 'block';
                 }
             } catch (e) {
-                err.textContent = 'Connection failed';
+                err.textContent = e.message || 'Connection failed';
                 err.style.display = 'block';
             } finally {
                 btn.disabled = false;
@@ -473,43 +1664,80 @@
         document.getElementById('completeSignupForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const password = document.getElementById('createPassword').value;
+            const confirmPassword = document.getElementById('confirmCreatePassword').value;
             const checkboxes = document.querySelectorAll('.onboard-child-cb:checked');
             const confirmedStudentIds = Array.from(checkboxes).map(cb => cb.value);
+            const inviteData = window.currentInviteData;
 
-            if (currentInviteCode && password) {
+            if (password !== confirmPassword) {
+                const err = document.getElementById('signupError');
+                err.textContent = "Passwords do not match.";
+                err.style.display = 'block';
+                return;
+            }
+
+            if (currentInviteCode && password && inviteData) {
                 const btn = e.target.querySelector('button');
-                const err = document.getElementById('signupError'); // Use same error box
+                const err = document.getElementById('signupError');
 
                 btn.disabled = true;
                 btn.textContent = 'Creating Account...';
 
                 try {
-                    const res = await fetch('/api/auth/complete-signup', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            code: currentInviteCode,
-                            password,
-                            confirmedStudentIds
-                        })
+                    if (!inviteData.parent_email) {
+                        throw new Error("Missing email in invite. Please contact admin.");
+                    }
+
+                    const userCredential = await auth.createUserWithEmailAndPassword(inviteData.parent_email, password);
+                    const user = userCredential.user;
+
+                    // 2. Create User Profile & Update Logic
+                    const batch = db.batch();
+
+                    // User Profile
+                    const userRef = db.collection('users').doc(user.uid);
+                    batch.set(userRef, {
+                        email: inviteData.parent_email,
+                        role: 'parent', // System role for Firestore rules
+                        parent_name: inviteData.parent_name,
+                        designation: inviteData.role, // Family role: "Father", "Mother", "Guardian"
+                        family_name: inviteData.family_name,
+                        schoolId: inviteData.schoolId,
+                        children: confirmedStudentIds,
+                        created_at: Date.now()
                     });
 
-                    const result = await res.json();
+                    // Update Students (Link Family Name)
+                    confirmedStudentIds.forEach(sid => {
+                        const sRef = db.collection('students').doc(String(sid));
+                        batch.update(sRef, {
+                            family_name: inviteData.family_name
+                        });
+                    });
 
-                    if (res.ok) {
-                        alert('Account created successfully! Please sign in.');
-                        toggleAuth('login');
-                        // Reset form
-                        document.getElementById('inviteCode').value = '';
-                        document.getElementById('createPassword').value = '';
-                        document.getElementById('step1').classList.remove('hidden');
-                        document.getElementById('step2').classList.add('hidden');
-                    } else {
-                        err.textContent = result.error;
-                        err.style.display = 'block';
-                    }
+                    // Mark Invite Used
+                    const inviteRef = db.collection('parent_invites').doc(currentInviteCode);
+                    batch.update(inviteRef, {
+                        status: 'used',
+                        used_at: Date.now(),
+                        used_by: user.uid
+                    });
+
+                    await batch.commit();
+
+                    showToast('Account created successfully!', 'success');
+                    toggleAuth('login');
+
+                    // Cleanup
+                    document.getElementById('inviteCode').value = '';
+                    document.getElementById('createPassword').value = '';
+                    document.getElementById('step1').classList.remove('hidden');
+                    document.getElementById('step2').classList.add('hidden');
+                    window.currentInviteData = null;
+
                 } catch (e) {
-                    err.textContent = 'Connection error';
+                    console.error(e);
+                    err.textContent = e.message;
                     err.style.display = 'block';
                 } finally {
                     btn.disabled = false;
@@ -519,40 +1747,648 @@
         });
 
         async function logout() {
-            await fetch('/api/auth/logout', { method: 'POST' });
-            location.reload();
+            try {
+                await auth.signOut();
+                location.reload();
+            } catch (e) { console.error(e); }
         }
 
         // --- Dashboard Logic ---
 
-        function showDashboard(user) {
-            document.getElementById('loginCard').classList.add('hidden');
-            document.getElementById('dashboardCard').classList.remove('hidden');
-            document.getElementById('userEmailDisplay').textContent = user.email;
+        // Receipt Page Functions
+        let receiptClockInterval = null;
 
-            loadChildren();
+        async function showPickupConfirmation(childName, childrenNames = null) {
+            try {
+                const receiptPage = document.getElementById('pickupReceiptPage');
+                if (!receiptPage) {
+                    console.error('pickupReceiptPage not found');
+                    return;
+                }
+
+                // Get current user and fetch their profile
+                const user = auth.currentUser;
+                let parentName = 'Parent';
+                let designation = '';
+
+                if (user) {
+                    try {
+                        const userDoc = await db.collection('users').doc(user.uid).get();
+                        if (userDoc.exists) {
+                            const userData = userDoc.data();
+                            parentName = userData.parent_name || userData.family_name || user.email.split('@')[0];
+                            designation = userData.designation || userData.role || '';
+                            // Capitalize first letter
+                            if (designation) {
+                                designation = designation.charAt(0).toUpperCase() + designation.slice(1);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Could not fetch parent data:', e);
+                    }
+                }
+
+                // Populate Date & Time
+                const now = new Date();
+                const dateOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+                const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: true };
+                document.getElementById('receiptDate').textContent = now.toLocaleDateString('en-GB', dateOptions);
+                document.getElementById('receiptTime').textContent = now.toLocaleTimeString('en-US', timeOptions);
+
+                // Populate Parent Info
+                document.getElementById('receiptParentName').textContent = parentName;
+                document.getElementById('receiptDesignation').textContent = designation;
+
+                // Set Parent Photo
+                const photoContainer = document.getElementById('receiptParentPhoto');
+                if (window.currentUserPhotoURL) {
+                    photoContainer.innerHTML = `<img src="${window.currentUserPhotoURL}" style="width:100%; height:100%; object-fit:cover;">`;
+                } else {
+                    photoContainer.innerHTML = `<div style="font-size:2rem; color:#94a3b8;">👤</div>`;
+                }
+
+                // Populate Children List
+                const childrenListEl = document.getElementById('receiptChildrenList');
+                const children = childrenNames || [childName];
+                childrenListEl.innerHTML = children.map(name => `
+                    <div style="display:flex; align-items:center; gap:0.5rem; padding:0.5rem; background:#f0fdf4; border-radius:8px; border:1px solid #bbf7d0;">
+                        <span style="font-size:1.25rem;">👦</span>
+                        <span style="font-weight:600; color:#1f2937;">${escapeHtml(name)}</span>
+                    </div>
+                `).join('');
+
+                // Start live clock
+                function updateLiveClock() {
+                    const clockEl = document.getElementById('receiptLiveClock');
+                    if (clockEl) {
+                        clockEl.textContent = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                    }
+                }
+                updateLiveClock();
+                if (receiptClockInterval) clearInterval(receiptClockInterval);
+                receiptClockInterval = setInterval(updateLiveClock, 1000);
+
+                // Show receipt page
+                receiptPage.style.display = 'block';
+                document.body.style.overflow = 'hidden'; // Prevent background scroll
+                console.log('Receipt page shown for:', childName);
+
+            } catch (e) {
+                console.error('Error showing receipt:', e);
+            }
         }
 
-        async function loadChildren() {
-            try {
-                const res = await fetch('/api/parent/children');
-                const children = await res.json();
+        function closeReceipt() {
+            const receiptPage = document.getElementById('pickupReceiptPage');
+            if (receiptPage) {
+                receiptPage.style.display = 'none';
+            }
+            document.body.style.overflow = ''; // Restore scroll
+            if (receiptClockInterval) {
+                clearInterval(receiptClockInterval);
+                receiptClockInterval = null;
+            }
+        }
 
+        function getTimeGreeting() {
+            const hour = new Date().getHours();
+            if (hour < 12) return '🌅 Good morning';
+            if (hour < 17) return '☀️ Good afternoon';
+            return '🌙 Good evening';
+        }
+
+        function formatParentName(displayName, gender) {
+            if (!displayName) return '';
+            // Extract surname (last word)
+            const parts = displayName.trim().split(' ');
+            const surname = parts[parts.length - 1];
+            // Use gender for honorific (default to full name if unknown)
+            if (gender === 'male') return `Mr. ${surname}`;
+            if (gender === 'female') return `Mrs. ${surname}`;
+            // Fallback to full name if gender not set
+            return displayName;
+        }
+
+        function showDashboard(user) {
+            // Reveal Main Container
+            document.getElementById('loadingOverlay').style.display = 'none';
+            document.getElementById('mainContainer').style.display = 'block';
+
+            document.getElementById('loginCard').classList.add('hidden');
+            document.getElementById('dashboardCard').classList.remove('hidden');
+
+            // Warm personalized greeting
+            const greeting = getTimeGreeting();
+            const parentName = formatParentName(user.displayName, user.gender);
+
+            document.getElementById('greetingMessage').textContent = `${greeting}!`;
+            document.getElementById('parentNameDisplay').textContent = parentName || user.email;
+
+            // Store photo URL globally for receipt
+            window.currentUserPhotoURL = user.photo_url || user.photoURL || null;
+
+            loadChildren(user.children || []);
+        }
+
+        // --- Geolocation & Sign-Out Logic ---
+
+        // School coordinates (should be fetched from school settings)
+        // For now, using a default - admins can set this in school settings
+        let schoolLocation = { lat: 6.5244, lng: 3.3792 }; // Default: Lagos
+        let schoolGeofenceRadius = 100; // meters
+
+        // Track pending pickups for real-time updates
+        let pendingPickups = {};
+        let pickupListeners = {};
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth's radius in meters
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c; // Distance in meters
+        }
+
+        async function loadSchoolLocation() {
+            try {
+                const schoolId = sessionStorage.getItem('schoolId');
+                if (!schoolId) return;
+
+                const schoolDoc = await db.collection('schools').doc(schoolId).get();
+                if (schoolDoc.exists) {
+                    const data = schoolDoc.data();
+                    if (data.coordinates) {
+                        schoolLocation = data.coordinates;
+                    }
+                    if (data.geofenceRadius) {
+                        schoolGeofenceRadius = data.geofenceRadius;
+                    }
+                }
+            } catch (e) {
+                console.log('Could not load school location, using default');
+            }
+        }
+
+        async function loadChildren(childIds) {
+            try {
+                if (!childIds || childIds.length === 0) {
+                    document.getElementById('childrenCards').innerHTML = '<p style="text-align:center; color:var(--text-muted);">No children linked.</p>';
+                    document.getElementById('childrenList').innerHTML = '<li style="padding:1rem;">No children linked.</li>';
+                    return;
+                }
+
+                // Load school location for geofencing
+                await loadSchoolLocation();
+
+                const children = [];
+                // Handle both String IDs and Object IDs (legacy format)
+                const normalizedIds = childIds.map(c => (typeof c === 'object' && c.id) ? c.id : String(c));
+                const promises = normalizedIds.map(id => db.collection('students').doc(id).get());
+                const snapshots = await Promise.all(promises);
+
+                snapshots.forEach(doc => {
+                    if (doc.exists) children.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Store children globally for sign-out
+                window.currentChildren = children;
+
+                // Render Child Cards (with checkboxes for bulk sign-out)
+                const cardsContainer = document.getElementById('childrenCards');
+                cardsContainer.innerHTML = children.map(child => {
+                    const name = cleanName(child.name);
+                    return `
+                    <div class="child-card" id="child-card-${child.id}" data-child-id="${child.id}">
+                        <div class="child-info">
+                            <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; flex: 1;">
+                                <input type="checkbox" class="child-checkbox" value="${child.id}" 
+                                       onchange="updateSelectionCount()" 
+                                       style="width: 1.25rem; height: 1.25rem; margin-top: 0.25rem; accent-color: #10b981;">
+                                <div>
+                                    <div class="child-name" style="font-size: 1.05rem; color: #1e293b; font-weight: 600;">${escapeHtml(name)}</div>
+                                    <div class="child-details" style="color: #64748b;">Year ${child.year} • ${child.class}</div>
+                                    <div id="arrival-${child.id}" style="margin-top:4px;"></div>
+                                </div>
+                            </label>
+                            <div id="status-${child.id}"></div>
+                        </div>
+                    </div>
+                `}).join('');
+
+                // Also render traditional checklist (for code generation)
                 const list = document.getElementById('childrenList');
-                list.innerHTML = children.map(child => `
+                list.innerHTML = children.map(child => {
+                    const name = cleanName(child.name);
+                    return `
                     <li class="student-item">
                         <label style="display:flex;align-items:center;width:100%;margin:0;cursor:pointer">
                             <input type="checkbox" value="${child.id}" checked>
                             <div>
-                                <div style="font-weight:600">${child.name}</div>
+                                <div style="font-weight:600">${escapeHtml(name)}</div>
                                 <div style="font-size:0.875rem;color:var(--text-muted)">Year ${child.year} - ${child.class}</div>
                             </div>
                         </label>
                     </li>
-                `).join('');
+                `}).join('');
+
+                // Check for any pending pickups from today
+                await checkPendingPickups(childIds);
+
+                // Load arrival activity for each child
+                loadAllChildArrivalStatus(children);
+
+                // Poll every 30 seconds for real-time-ish updates
+                if (window._arrivalPollInterval) clearInterval(window._arrivalPollInterval);
+                window._arrivalPollInterval = setInterval(() => loadAllChildArrivalStatus(children), 30000);
+
             } catch (error) {
                 console.error('Error loading children:', error);
+                document.getElementById('childrenCards').innerHTML = '<p style="color:red;">Failed to load children.</p>';
+                document.getElementById('childrenList').innerHTML = '<li style="padding:1rem; color:red;">Failed to load children.</li>';
             }
+        }
+
+        async function checkPendingPickups(childIds) {
+            try {
+                const schoolId = sessionStorage.getItem('schoolId');
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                // Query for pending pickups for these children today
+                const pickupsSnapshot = await db.collection('pickups')
+                    .where('schoolId', '==', schoolId)
+                    .where('status', 'in', ['pending', 'acknowledged'])
+                    .where('timestamp', '>=', today.getTime())
+                    .get();
+
+                pickupsSnapshot.forEach(doc => {
+                    const pickup = doc.data();
+                    const studentId = pickup.student_id || (pickup.students && pickup.students[0]);
+
+                    if (studentId && childIds.includes(studentId)) {
+                        updateChildStatus(studentId, pickup.status, doc.id);
+                        listenToPickup(doc.id, studentId);
+                    }
+                });
+            } catch (e) {
+                console.log('Error checking pending pickups:', e);
+            }
+        }
+
+        function listenToPickup(pickupId, studentId) {
+            // Avoid duplicate listeners
+            if (pickupListeners[pickupId]) return;
+
+            pickupListeners[pickupId] = db.collection('pickups').doc(pickupId)
+                .onSnapshot(doc => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        updateChildStatus(studentId, data.status, pickupId);
+                    }
+                });
+        }
+
+        function updateChildStatus(studentId, status, pickupId) {
+            const card = document.getElementById(`child-card-${studentId}`);
+            const statusEl = document.getElementById(`status-${studentId}`);
+            const checkbox = document.querySelector(`.child-checkbox[value="${studentId}"]`);
+
+            if (!card || !statusEl) return;
+
+            // Look up child name for receipt
+            let childName = 'Child';
+            if (window.currentChildren) {
+                const child = window.currentChildren.find(c => c.id === studentId);
+                if (child) childName = child.name;
+            }
+            const safeName = childName.replace(/'/g, "\\'");
+
+            const receiptBtn = `
+                <div style="margin-top:6px; text-align:right;">
+                    <button onclick="showPickupConfirmation('${safeName}')" 
+                        style="font-size:0.75rem; padding:4px 10px; background:rgba(255,255,255,0.9); border:1px solid #059669; color:#059669; border-radius:12px; cursor:pointer; font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+                        📄 Show Receipt
+                    </button>
+                </div>
+            `;
+
+            card.classList.remove('pending', 'released');
+
+            if (status === 'pending') {
+                card.classList.add('pending');
+                statusEl.innerHTML = `
+                    <div style="text-align:right;">
+                        <div class="status-badge pending"><span class="pulse-dot"></span> Waiting...</div>
+                        ${receiptBtn}
+                    </div>`;
+                // Disable checkbox for pending children
+                if (checkbox) {
+                    checkbox.checked = false;
+                    checkbox.disabled = true;
+                }
+            } else if (status === 'acknowledged' || status === 'completed') {
+                card.classList.add('released');
+                // If acknowledged, we show as released per existing logic, or distinguish?
+                // Existing logic showed 'Released' for acknowledged/completed. I'll keep it but maybe add distinction if needed?
+                // For now, stick to 'Released' to not confuse.
+                statusEl.innerHTML = `
+                    <div style="text-align:right;">
+                        <div class="status-badge released">✅ Released</div>
+                        ${receiptBtn}
+                    </div>`;
+
+                // Disable checkbox for released children
+                if (checkbox) {
+                    checkbox.checked = false;
+                    checkbox.disabled = true;
+                }
+
+                // Clean up listener
+                if (pickupListeners[pickupId]) {
+                    pickupListeners[pickupId]();
+                    delete pickupListeners[pickupId];
+                }
+            } else {
+                // Reset to default
+                statusEl.innerHTML = '';
+                if (checkbox) {
+                    checkbox.disabled = false;
+                }
+            }
+
+            updateSelectionCount();
+        }
+
+        async function signOutChild(studentId, studentName) {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerHTML = '📍 Checking location...';
+
+            try {
+                // Request geolocation
+                const position = await new Promise((resolve, reject) => {
+                    if (!navigator.geolocation) {
+                        reject(new Error('Geolocation not supported'));
+                        return;
+                    }
+
+                    // Try Low Accuracy first to avoid timeout
+                    navigator.geolocation.getCurrentPosition(resolve, (err) => {
+                        console.warn('High accuracy failed/timed out, retrying low accuracy...', err);
+                        // Retry with low accuracy
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: false,
+                            timeout: 60000, // 60 second timeout for mobile (GPS can be slow indoors)
+                            maximumAge: 60000 // Accept cached location up to 1 min old
+                        });
+                    }, {
+                        enableHighAccuracy: true,
+                        timeout: 10000, // 10 sec for high accuracy try
+                        maximumAge: 30000
+                    });
+                });
+
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+                const distance = calculateDistance(userLat, userLng, schoolLocation.lat, schoolLocation.lng);
+
+                console.log(`Distance from school: ${distance.toFixed(0)}m (limit: ${schoolGeofenceRadius}m)`);
+
+                if (distance > schoolGeofenceRadius) {
+                    // Too far from school
+                    showToast(`You're ${Math.round(distance)}m from school. You need to be within ${schoolGeofenceRadius}m to sign out.`, 'warning');
+                    btn.disabled = false;
+                    btn.innerHTML = '📍 Sign Out Now';
+                    return;
+                }
+
+                // Within geofence - create pickup
+                btn.innerHTML = '📍 Signing out...';
+
+                const child = window.currentChildren.find(c => c.id === studentId);
+                const schoolId = sessionStorage.getItem('schoolId');
+                const user = auth.currentUser;
+
+                const pickupData = {
+                    student_id: studentId,
+                    student_name: child ? child.name : studentName,
+                    year: child ? child.year : '',  // Used by display.html
+                    class: child ? child.class : '',  // Used by display.html
+                    schoolId: schoolId,
+                    generatedBy: user.uid,
+                    parent_email: user.email,
+                    method: 'self_signout',
+                    status: 'pending',
+                    timestamp: Date.now(),
+                    location: {
+                        lat: userLat,
+                        lng: userLng,
+                        distance: Math.round(distance)
+                    }
+                };
+
+                const docRef = await db.collection('pickups').add(pickupData);
+
+                showToast(`✅ Request Sent! Please wait...`, 'success');
+
+                // DEBUG: Check if function exists
+                // Alert removed
+
+                // Show confirmation modal
+                showPickupConfirmation(child ? child.name : 'Your child');
+
+                // Update UI and start listener
+                updateChildStatus(studentId, 'pending', docRef.id);
+                listenToPickup(docRef.id, studentId);
+
+            } catch (error) {
+                console.error('Sign out error:', error);
+
+                if (error.code === 1 || error.message.includes('denied')) {
+                    showToast('Location access denied. Please enable location or use the code option below.', 'error');
+                } else if (error.code === 2) {
+                    showToast('Could not determine your location. Please try again.', 'error');
+                } else if (error.code === 3) {
+                    showToast('Location request timed out. Try: 1) Go near a window/outside 2) Enable GPS in phone settings 3) Refresh page.', 'error');
+                } else {
+                    showToast('Error: ' + error.message, 'error');
+                }
+
+                btn.disabled = false;
+                btn.innerHTML = '📍 Sign Out Now';
+            }
+        }
+
+        // --- Bulk Sign-Out Functions ---
+
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAllChildren');
+            const checkboxes = document.querySelectorAll('.child-checkbox');
+            checkboxes.forEach(cb => {
+                // Only toggle if child is not already signed out
+                const card = document.getElementById(`child-card-${cb.value}`);
+                if (card && !card.classList.contains('pending') && !card.classList.contains('released')) {
+                    cb.checked = selectAll.checked;
+                }
+            });
+            updateSelectionCount();
+        }
+
+        function updateSelectionCount() {
+            const checkboxes = document.querySelectorAll('.child-checkbox:checked');
+            const count = checkboxes.length;
+
+            const countEl = document.getElementById('selectedCount');
+            if (countEl) {
+                countEl.textContent = count;
+            }
+
+            const btn = document.getElementById('bulkSignOutBtn');
+            if (btn) {
+                // Only disable if not currently processing (checking if text contains 'Sign Out')
+                if (btn.textContent.includes('Sign Out')) {
+                    btn.disabled = count === 0;
+                }
+            }
+
+            // Update "Select All" checkbox state
+            const allCheckboxes = document.querySelectorAll('.child-checkbox');
+            const selectAll = document.getElementById('selectAllChildren');
+            if (selectAll) {
+                if (count === allCheckboxes.length && count > 0) {
+                    selectAll.checked = true;
+                    selectAll.indeterminate = false;
+                } else if (count > 0) {
+                    selectAll.checked = false;
+                    selectAll.indeterminate = true;
+                } else {
+                    selectAll.checked = false;
+                    selectAll.indeterminate = false;
+                }
+            }
+        }
+
+        async function signOutSelected() {
+            const btn = document.getElementById('bulkSignOutBtn');
+            const checkboxes = document.querySelectorAll('.child-checkbox:checked');
+            const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+
+            if (selectedIds.length === 0) {
+                showToast('Please select at least one child.', 'warning');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '📍 Checking...';
+
+            try {
+                // Request geolocation
+                const position = await new Promise((resolve, reject) => {
+                    if (!navigator.geolocation) {
+                        reject(new Error('Geolocation not supported'));
+                        return;
+                    }
+                    // Try Low Accuracy first to avoid timeout
+                    navigator.geolocation.getCurrentPosition(resolve, (err) => {
+                        console.warn('High accuracy failed/timed out, retrying low accuracy...', err);
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: false,
+                            timeout: 60000, // 60 second timeout for mobile
+                            maximumAge: 60000
+                        });
+                    }, {
+                        enableHighAccuracy: true,
+                        timeout: 10000, // 10 sec for high accuracy try
+                        maximumAge: 30000
+                    });
+                });
+
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+                const distance = calculateDistance(userLat, userLng, schoolLocation.lat, schoolLocation.lng);
+
+                console.log(`Distance from school: ${distance.toFixed(0)}m (limit: ${schoolGeofenceRadius}m)`);
+
+                if (distance > schoolGeofenceRadius) {
+                    showToast(`You're ${Math.round(distance)}m from school. You need to be within ${schoolGeofenceRadius}m.`, 'warning');
+                    resetBulkButton();
+                    return;
+                }
+
+                // Within geofence - create pickups for all selected children
+                btn.innerHTML = `📍 Signing out ${selectedIds.length} children...`;
+
+                const schoolId = sessionStorage.getItem('schoolId');
+                const user = auth.currentUser;
+                const signedOutNames = [];
+
+                for (const studentId of selectedIds) {
+                    const child = window.currentChildren.find(c => c.id === studentId);
+                    if (!child) continue;
+
+                    const pickupData = {
+                        student_id: studentId,
+                        student_name: child.name,
+                        year: child.year,
+                        class: child.class,
+                        schoolId: schoolId,
+                        generatedBy: user.uid,
+                        parent_email: user.email,
+                        method: 'self_signout_bulk',
+                        status: 'pending',
+                        timestamp: Date.now(),
+                        location: {
+                            lat: userLat,
+                            lng: userLng,
+                            distance: Math.round(distance)
+                        }
+                    };
+
+                    const docRef = await db.collection('pickups').add(pickupData);
+
+                    // Update UI and start listener for each child
+                    updateChildStatus(studentId, 'pending', docRef.id);
+                    listenToPickup(docRef.id, studentId);
+                    signedOutNames.push(child.name);
+
+                    // Uncheck the checkbox
+                    const checkbox = document.querySelector(`.child-checkbox[value="${studentId}"]`);
+                    if (checkbox) checkbox.checked = false;
+                }
+
+                showToast(`✅ Request Sent! Please wait...`, 'success');
+                updateSelectionCount();
+
+                // Show receipt page with all signed out children
+                showPickupConfirmation(signedOutNames[0], signedOutNames);
+
+            } catch (error) {
+                console.error('Bulk sign out error:', error);
+
+                if (error.code === 1 || error.message.includes('denied')) {
+                    showToast('Location access denied. Please enable location or use the code option.', 'error');
+                } else if (error.code === 2) {
+                    showToast('Could not determine your location. Please try again.', 'error');
+                } else if (error.code === 3) {
+                    showToast('Location request timed out. Try: 1) Go near a window/outside 2) Enable GPS in phone settings 3) Refresh page.', 'error');
+                } else {
+                    showToast('Error: ' + error.message, 'error');
+                }
+            }
+
+            resetBulkButton();
+        }
+
+        function resetBulkButton() {
+            const btn = document.getElementById('bulkSignOutBtn');
+            const count = document.querySelectorAll('.child-checkbox:checked').length;
+            btn.disabled = count === 0;
+            btn.innerHTML = `📍 Sign Out <span id="selectedCount" style="background: rgba(255,255,255,0.3); padding: 0.15rem 0.5rem; border-radius: 12px; font-weight: 700; min-width: 1.5rem; text-align: center;">${count}</span>`;
         }
 
         async function generateCode() {
@@ -560,31 +2396,950 @@
             const studentIds = Array.from(checkboxes).map(cb => cb.value);
 
             if (studentIds.length === 0) {
-                alert('Please select at least one child to pick up.');
+                showToast('Please select at least one child to pick up.', 'warning');
+                return;
+            }
+
+            const useOneTime = document.getElementById('useOneTimePicker')?.checked;
+            const selectedPickerId = document.getElementById('selectedPickerId')?.value;
+
+            // If using saved picker
+            if (!useOneTime && selectedPickerId) {
+                const picker = savedPickers.find(p => p.id === selectedPickerId);
+                if (picker) {
+                    // Use saved picker directly, no modal needed
+                    await executeCodeGeneration(picker.name, picker.idType, studentIds, checkboxes, picker.photoUrl || null);
+                    return;
+                }
+            }
+
+            // If no saved picker selected and not using one-time, prompt to select
+            if (!useOneTime && !selectedPickerId && savedPickers.length > 0) {
+                showToast('Please select a picker or check "Use one-time picker"', 'warning');
                 return;
             }
 
             try {
-                const res = await fetch('/api/pickup-code', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ studentIds })
-                });
-                const data = await res.json();
+                // Open Modal for one-time picker entry
+                document.getElementById('pickerDetailsModal').classList.remove('hidden');
+                document.getElementById('modalBackdrop').classList.remove('hidden');
 
-                if (data.code) {
-                    document.getElementById('codeValue').textContent = data.code.substring(0, 3) + ' ' + data.code.substring(3);
-                    document.getElementById('codeDisplay').style.display = 'block';
-                    // Scroll to code
-                    document.getElementById('codeDisplay').scrollIntoView({ behavior: 'smooth' });
+                // Handle Form Submission
+                const form = document.getElementById('pickerDetailsForm');
+                form.onsubmit = async (e) => {
+                    e.preventDefault();
+
+                    const pickerName = document.getElementById('pickerName').value.trim();
+                    const pickerIdType = document.getElementById('pickerIdType').value;
+                    const pickerImageFile = document.getElementById('pickerImage').files[0];
+
+                    if (!pickerName || !pickerIdType) {
+                        showToast('Please fill in name and ID type.', 'warning');
+                        return;
+                    }
+
+                    // Upload Image if present
+                    let pickerImageUrl = null;
+                    if (pickerImageFile) {
+                        try {
+                            const btn = form.querySelector('button[type="submit"]');
+                            const originalText = btn.innerText;
+                            btn.disabled = true;
+                            btn.innerText = "Uploading...";
+
+                            const schoolId = sessionStorage.getItem('schoolId');
+                            const timestamp = Date.now();
+                            const path = `pickers/${schoolId}/${new Date().toISOString().split('T')[0]}/${timestamp}_${pickerImageFile.name}`;
+                            const storageRef = storage.ref().child(path);
+
+                            showToast("Uploading picker photo...", "info");
+                            await storageRef.put(pickerImageFile);
+                            pickerImageUrl = await storageRef.getDownloadURL();
+
+                        } catch (err) {
+                            console.error("Upload failed", err);
+                            showToast("Failed to upload photo. Code generated without image.", "error");
+                            // Proceed without image? Or block? Let's proceed but warn.
+                        }
+                    }
+
+                    // Proceed with Generation
+                    await executeCodeGeneration(pickerName, pickerIdType, studentIds, checkboxes, pickerImageUrl);
+                    closePickerModal();
+                };
+
+            } catch (e) {
+                console.error(e);
+                showToast('Error preparing code generation', 'error');
+            }
+        }
+
+        function closePickerModal() {
+            document.getElementById('pickerDetailsModal').classList.add('hidden');
+            document.getElementById('modalBackdrop').classList.add('hidden');
+            document.getElementById('pickerDetailsForm').reset();
+        }
+
+        async function executeCodeGeneration(pickerName, pickerIdType, studentIds, checkboxes, pickerImageUrl) {
+            const generateUniqueCode = async () => {
+                const chars = '0123456789';
+                for (let attempt = 0; attempt < 10; attempt++) {
+                    let code = '';
+                    for (let i = 0; i < 6; i++) {
+                        code += chars.charAt(Math.floor(Math.random() * chars.length));
+                    }
+                    // Check if code already exists
+                    const existing = await db.collection('pickup_codes').doc(code).get();
+                    if (!existing.exists) {
+                        return code; // Unique code found
+                    }
                 }
-            } catch (error) {
-                alert('Failed to generate code');
+                throw new Error('Could not generate unique code. Please try again.');
+            };
+
+            try {
+                showToast('Generating code...', 'info');
+                const code = await generateUniqueCode();
+
+                // Determine names for display
+                const studentNames = [];
+                checkboxes.forEach(cb => {
+                    const nameDiv = cb.nextElementSibling.querySelector('div:first-child');
+                    if (nameDiv) studentNames.push(nameDiv.textContent);
+                });
+
+                await db.collection('pickup_codes').doc(code).set({
+                    code: code,
+                    student_ids: studentIds, // Array of student IDs (Snake Case for consistency)
+                    student_names: studentNames,
+                    schoolId: sessionStorage.getItem('schoolId'),
+                    generatedBy: auth.currentUser.uid,
+                    parentEmail: auth.currentUser.email,
+                    timestamp: Date.now(),
+                    validUntil: new Date().setHours(23, 59, 59, 999), // Midnight
+                    status: 'active',
+
+                    // Picker Details
+                    pickerName: pickerName, // Formal Name
+                    pickerIdType: pickerIdType, // ID Card Type
+                    pickerImageUrl: pickerImageUrl || null // Optional Image
+                });
+
+
+                document.getElementById('codeValue').textContent = code.substring(0, 3) + ' ' + code.substring(3);
+                document.getElementById('codeDisplay').style.display = 'block';
+                document.getElementById('codeDisplay').scrollIntoView({ behavior: 'smooth' });
+                showToast('Pickup Code Generated!', 'success');
+
+            } catch (e) {
+                console.error(e);
+                showToast('Error generating code', 'error');
             }
         }
 
         // Check if already logged in on load
         // (Optional enhancement, simplified for now to rely on login form)
+
+        // Helper: Copy to Clipboard
+        async function copyToClipboard(text) {
+            try {
+                // Formatting: remove spaces? Maybe not.
+                await navigator.clipboard.writeText(text);
+                showToast('Code copied to clipboard! 📋', 'success');
+            } catch (err) {
+                console.error('Failed to copy: ', err);
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast('Code copied to clipboard! 📋', 'success');
+                } catch (err) {
+                    showToast('Failed to copy', 'error');
+                }
+                document.body.removeChild(textArea);
+            }
+        }
+
+        // --- Testing: Reset Status ---
+        async function resetStatus() {
+            if (!confirm('Reset all children to "Learning"? This is for testing.')) return;
+
+            const btn = document.querySelector('button[onclick="resetStatus()"]');
+            if (btn) btn.innerText = '🔄 Resetting...';
+
+            const batch = db.batch();
+            const childrenIds = JSON.parse(sessionStorage.getItem('childrenIds') || '[]');
+            const schoolId = sessionStorage.getItem('schoolId');
+
+            if (childrenIds.length === 0) {
+                showToast('No children found on device.', 'warning');
+                return;
+            }
+
+            // 1. Reset Student Documents
+            for (const childId of childrenIds) {
+                const ref = db.collection('students').doc(childId);
+                batch.update(ref, {
+                    pickup_status: 'Learning',
+                    pickup_time: firebase.firestore.FieldValue.delete()
+                });
+            }
+
+            // 2. Delete Today's Pickup Documents (The real blocker)
+            try {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                // Find pickups for these children created today
+                const pickupsSnapshot = await db.collection('pickups')
+                    .where('schoolId', '==', schoolId)
+                    .where('timestamp', '>=', today.getTime())
+                    .get();
+
+                pickupsSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const sId = data.student_id || (data.students && data.students[0]);
+
+                    // Only delete if it belongs to one of our children
+                    if (childrenIds.includes(String(sId)) || (data.students && data.students.some(id => childrenIds.includes(String(id))))) {
+                        batch.delete(doc.ref);
+                    }
+                });
+
+                await batch.commit();
+                showToast('Status Reset! Reloading...', 'success');
+                setTimeout(() => window.location.reload(), 1000);
+
+            } catch (error) {
+                console.error('Reset failed:', error);
+                showToast('Reset failed: ' + error.message, 'error');
+                if (btn) btn.innerText = '🔄 Reset Status (Testing)';
+            }
+        }
+
+        // ============================================
+        // PICKERS MANAGEMENT
+        // ============================================
+
+        let savedPickers = [];
+
+        async function loadPickers() {
+            const container = document.getElementById('pickersContainer');
+            if (!container) return;
+
+            try {
+                const user = auth.currentUser;
+                if (!user) return;
+
+                const snapshot = await db.collection('users').doc(user.uid)
+                    .collection('pickers').orderBy('createdAt', 'desc').get();
+
+                savedPickers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderPickers();
+                updatePickerDropdown();
+            } catch (e) {
+                console.error('Error loading pickers:', e);
+                container.innerHTML = '<div style="color:#92400e; font-size:0.9rem; padding:1rem; text-align:center;">Failed to load pickers.</div>';
+            }
+        }
+
+        function togglePickerMode() {
+            const useOneTime = document.getElementById('useOneTimePicker').checked;
+            const selector = document.getElementById('savedPickerSelector');
+            if (selector) {
+                selector.style.display = useOneTime ? 'none' : 'block';
+            }
+        }
+
+        function updatePickerDropdown() {
+            const dropdown = document.getElementById('selectedPickerId');
+            if (!dropdown) return;
+
+            dropdown.innerHTML = '<option value="">-- Select a saved picker --</option>';
+
+            savedPickers.forEach(picker => {
+                const option = document.createElement('option');
+                option.value = picker.id;
+                option.textContent = `${picker.name} (${picker.idType})`;
+                dropdown.appendChild(option);
+            });
+        }
+
+        function renderPickers() {
+            const container = document.getElementById('pickersContainer');
+            if (!container) return;
+
+            if (savedPickers.length === 0) {
+                container.innerHTML = `
+                    <div style="color:#92400e; font-size:0.9rem; padding:1rem; text-align:center; width:100%;">
+                        No pickers saved yet. Add your first picker above!
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = savedPickers.map(picker => `
+                <div class="picker-card" style="background:white; border:1px solid #fcd34d; border-radius:10px; padding:0.75rem; width:calc(50% - 0.375rem); min-width:140px; box-sizing:border-box;">
+                    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
+                        ${picker.photoUrl
+                    ? `<img src="${picker.photoUrl}" alt="${escapeHtml(picker.name)}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:2px solid #f59e0b;">`
+                    : `<div style="width:40px; height:40px; border-radius:50%; background:#fef3c7; display:flex; align-items:center; justify-content:center; font-size:1.25rem; border:2px solid #f59e0b;">👤</div>`
+                }
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-weight:600; color:#1f2937; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(picker.name)}</div>
+                            <div style="font-size:0.75rem; color:#6b7280;">${escapeHtml(picker.idType)}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:0.25rem;">
+                        <button onclick="editPicker('${picker.id}')" style="flex:1; padding:0.25rem; font-size:0.75rem; background:#f0f0f0; border:none; border-radius:4px; cursor:pointer;">✏️ Edit</button>
+                        <button onclick="deletePicker('${picker.id}', '${escapeHtml(picker.name)}')" style="flex:1; padding:0.25rem; font-size:0.75rem; background:#fee2e2; color:#dc2626; border:none; border-radius:4px; cursor:pointer;">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openAddPickerModal() {
+            document.getElementById('pickerModalTitle').textContent = 'Add Picker';
+            document.getElementById('editingPickerId').value = '';
+            document.getElementById('newPickerName').value = '';
+            document.getElementById('newPickerIdType').value = '';
+            document.getElementById('newPickerPhoto').value = '';
+            document.getElementById('pickerPhotoPreview').style.display = 'none';
+            document.getElementById('savePickerBtn').textContent = 'Save Picker';
+
+            document.getElementById('addPickerModal').classList.remove('hidden');
+            document.getElementById('modalBackdrop').classList.remove('hidden');
+        }
+
+        function closeAddPickerModal() {
+            document.getElementById('addPickerModal').classList.add('hidden');
+            document.getElementById('modalBackdrop').classList.add('hidden');
+        }
+
+        function editPicker(pickerId) {
+            const picker = savedPickers.find(p => p.id === pickerId);
+            if (!picker) return;
+
+            document.getElementById('pickerModalTitle').textContent = 'Edit Picker';
+            document.getElementById('editingPickerId').value = pickerId;
+            document.getElementById('newPickerName').value = picker.name || '';
+            document.getElementById('newPickerIdType').value = picker.idType || '';
+            document.getElementById('newPickerPhoto').value = '';
+            document.getElementById('savePickerBtn').textContent = 'Update Picker';
+
+            // Show existing photo if any
+            if (picker.photoUrl) {
+                document.getElementById('pickerPreviewImg').src = picker.photoUrl;
+                document.getElementById('pickerPhotoPreview').style.display = 'block';
+            } else {
+                document.getElementById('pickerPhotoPreview').style.display = 'none';
+            }
+
+            document.getElementById('addPickerModal').classList.remove('hidden');
+            document.getElementById('modalBackdrop').classList.remove('hidden');
+        }
+
+        async function deletePicker(pickerId, pickerName) {
+            if (!confirm(`Delete "${pickerName}" from your pickers?`)) return;
+
+            try {
+                const user = auth.currentUser;
+                await db.collection('users').doc(user.uid).collection('pickers').doc(pickerId).delete();
+                showToast(`"${pickerName}" deleted`, 'success');
+                loadPickers();
+            } catch (e) {
+                console.error('Delete picker error:', e);
+                showToast('Failed to delete picker', 'error');
+            }
+        }
+
+        // Photo preview on file select
+        document.getElementById('newPickerPhoto')?.addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    document.getElementById('pickerPreviewImg').src = e.target.result;
+                    document.getElementById('pickerPhotoPreview').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Save Picker Form
+        document.getElementById('addPickerForm')?.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const name = document.getElementById('newPickerName').value.trim();
+            const idType = document.getElementById('newPickerIdType').value;
+            const photoFile = document.getElementById('newPickerPhoto').files[0];
+            const editingId = document.getElementById('editingPickerId').value;
+            const btn = document.getElementById('savePickerBtn');
+
+            if (!name || !idType) {
+                showToast('Please fill all required fields', 'warning');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            try {
+                const user = auth.currentUser;
+                const schoolId = sessionStorage.getItem('schoolId');
+                let photoUrl = null;
+
+                // Upload photo if provided
+                if (photoFile) {
+                    const dateStr = new Date().toISOString().split('T')[0];
+                    const fileName = `${Date.now()}_${photoFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+                    const storagePath = `pickers/${schoolId}/${dateStr}/${fileName}`;
+                    const storageRef = firebase.storage().ref(storagePath);
+                    await storageRef.put(photoFile);
+                    photoUrl = await storageRef.getDownloadURL();
+                }
+
+                const pickerData = {
+                    name: name,
+                    idType: idType,
+                    updatedAt: Date.now()
+                };
+
+                if (photoUrl) {
+                    pickerData.photoUrl = photoUrl;
+                }
+
+                if (editingId) {
+                    // Update
+                    await db.collection('users').doc(user.uid).collection('pickers').doc(editingId).update(pickerData);
+                    showToast('Picker updated!', 'success');
+                } else {
+                    // Create
+                    pickerData.createdAt = Date.now();
+                    await db.collection('users').doc(user.uid).collection('pickers').add(pickerData);
+                    showToast('Picker saved!', 'success');
+                }
+
+                closeAddPickerModal();
+                loadPickers();
+
+            } catch (e) {
+                console.error('Save picker error:', e);
+                showToast('Failed to save picker: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = editingId ? 'Update Picker' : 'Save Picker';
+            }
+        });
+
+        // Load pickers when dashboard shows
+        const originalShowDashboard = window.showDashboard || function () { };
+        window.showDashboard = function (user) {
+            originalShowDashboard.call(this, user);
+            loadPickers();
+        };
+
+    </script>
+
+    <!-- Mobile Bottom Navigation (visible on mobile only) -->
+    <nav class="bottom-nav" id="mobileBottomNav">
+        <button class="bottom-nav-item active" onclick="showSection('home')">
+            <span class="bottom-nav-icon">🏠</span>
+            <span>Home</span>
+        </button>
+        <button class="bottom-nav-item" onclick="showSection('code')">
+            <span class="bottom-nav-icon">📱</span>
+            <span>Code</span>
+        </button>
+        <button class="bottom-nav-item" onclick="showSection('history')">
+            <span class="bottom-nav-icon">📜</span>
+            <span>History</span>
+        </button>
+        <button class="bottom-nav-item" onclick="toggleMobileMenu(event)">
+            <span class="bottom-nav-icon">☰</span>
+            <span>Menu</span>
+        </button>
+    </nav>
+
+    <!-- Mobile Menu Dropdown -->
+    <div class="menu-overlay" id="menuOverlay" onclick="closeMobileMenu()"></div>
+    <div class="menu-dropdown" id="menuDropdown">
+        <button class="menu-dropdown-item" onclick="showSection('profile'); closeMobileMenu();">
+            <span class="menu-dropdown-icon">👤</span>
+            Profile
+        </button>
+        <button class="menu-dropdown-item" onclick="showToast('Settings coming soon!', 'info'); closeMobileMenu();">
+            <span class="menu-dropdown-icon">⚙️</span>
+            Settings
+        </button>
+        <button class="menu-dropdown-item"
+            onclick="showToast('Contact school admin for help', 'info'); closeMobileMenu();">
+            <span class="menu-dropdown-icon">❓</span>
+            Help
+        </button>
+        <button class="menu-dropdown-item logout" onclick="logout()">
+            <span class="menu-dropdown-icon">🚪</span>
+            Logout
+        </button>
+    </div>
+
+    <!-- Desktop Sidebar (visible on desktop only) -->
+    <aside class="desktop-sidebar" id="desktopSidebar" style="display: none;">
+        <div class="sidebar-header">
+            <img src="images/logo.png" alt="Logo">
+            <div class="sidebar-school-name" id="sidebarSchoolName">Parent Portal</div>
+        </div>
+
+        <button class="sidebar-nav-item active" onclick="showSection('home')">
+            <span class="sidebar-nav-icon">🏠</span>
+            Home
+        </button>
+        <button class="sidebar-nav-item" onclick="showSection('code')">
+            <span class="sidebar-nav-icon">📱</span>
+            Generate Pickup Code
+        </button>
+        <button class="sidebar-nav-item" onclick="showSection('history')">
+            <span class="sidebar-nav-icon">📜</span>
+            Pickup History
+        </button>
+        <button class="sidebar-nav-item" onclick="showSection('pickers')">
+            <span class="sidebar-nav-icon">👥</span>
+            My Pickers
+        </button>
+
+        <div class="sidebar-spacer"></div>
+
+        <button class="sidebar-nav-item" onclick="showSection('profile')">
+            <span class="sidebar-nav-icon">👤</span>
+            Profile
+        </button>
+        <button class="sidebar-nav-item" onclick="logout()">
+            <span class="sidebar-nav-icon">🚪</span>
+            Logout
+        </button>
+    </aside>
+
+    <script>
+        // Navigation Section Handler
+        function showSection(section) {
+            // Update active state on nav items
+            document.querySelectorAll('.bottom-nav-item, .sidebar-nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('active');
+            }
+
+            // Handle section switching
+            if (section === 'home') {
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else if (section === 'code' || section === 'pickers') {
+                // Scroll to My Pickers section (where code generation happens)
+                const pickersSection = document.querySelector('[style*="linear-gradient(135deg, #fefce8"]');
+                if (pickersSection) {
+                    pickersSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else {
+                    // Fallback: scroll to bottom of dashboard
+                    const dashboard = document.getElementById('dashboardCard');
+                    if (dashboard) dashboard.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            } else if (section === 'history') {
+                openHistoryModal();
+            } else if (section === 'profile') {
+                showToast('Profile settings coming soon!', 'info');
+            } else if (section === 'menu') {
+                // Show menu options as a simple dropdown or toast for now
+                showToast('Menu: Profile • Settings • Help', 'info');
+            }
+        }
+
+        // Pickup History Functions
+        function openHistoryModal() {
+            document.getElementById('historyModal').classList.add('active');
+            loadPickupHistory();
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('historyModal').classList.remove('active');
+        }
+
+        async function loadPickupHistory() {
+            const historyList = document.getElementById('historyList');
+            historyList.innerHTML = '<div class="history-empty"><div class="history-empty-icon">⏳</div><p>Loading...</p></div>';
+
+            try {
+                const schoolId = sessionStorage.getItem('schoolId');
+                const childrenIds = JSON.parse(sessionStorage.getItem('childrenIds') || '[]');
+
+                if (!schoolId || childrenIds.length === 0) {
+                    historyList.innerHTML = '<div class="history-empty"><div class="history-empty-icon">📋</div><p>No children linked to your account</p></div>';
+                    return;
+                }
+
+                // Fetch completed pickups for this parent's children
+                const pickupsSnapshot = await db.collection('pickups')
+                    .where('schoolId', '==', schoolId)
+                    .where('status', '==', 'acknowledged')
+                    .orderBy('timestamp', 'desc')
+                    .limit(50)
+                    .get();
+
+                // Filter to only this parent's children
+                const pickups = pickupsSnapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(p => childrenIds.includes(p.student_id));
+
+                if (pickups.length === 0) {
+                    historyList.innerHTML = '<div class="history-empty"><div class="history-empty-icon">📋</div><p>No pickup history yet</p></div>';
+                    return;
+                }
+
+                // Render history items
+                historyList.innerHTML = pickups.map(p => {
+                    const date = new Date(p.timestamp);
+                    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+                    // Check if third-party pickup
+                    const isThirdParty = p.pickup_code && p.pickup_code.length > 0;
+                    const badgeHtml = isThirdParty ? `<span class="history-badge">Code: ${p.pickup_code}</span>` : '';
+
+                    const pickerName = p.picker_name || 'Parent';
+                    const idType = p.id_type ? ` • ${p.id_type}` : '';
+
+                    return `
+                        <div class="history-item">
+                            <div class="history-icon">✅</div>
+                            <div class="history-details">
+                                <div class="history-child">${escapeHtml(p.student_name)} ${badgeHtml}</div>
+                                <div class="history-picker">Picked up by ${escapeHtml(pickerName)}${idType}</div>
+                                <div class="history-time">${dateStr} at ${timeStr}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error('Error loading pickup history:', err);
+                historyList.innerHTML = '<div class="history-empty"><div class="history-empty-icon">⚠️</div><p>Error loading history</p></div>';
+            }
+        }
+
+        // Mobile Menu Functions
+        function toggleMobileMenu(event) {
+            if (event) event.stopPropagation();
+            const dropdown = document.getElementById('menuDropdown');
+            const overlay = document.getElementById('menuOverlay');
+            const isOpen = dropdown.classList.contains('active');
+
+            if (isOpen) {
+                closeMobileMenu();
+            } else {
+                dropdown.classList.add('active');
+                overlay.classList.add('active');
+            }
+        }
+
+        function closeMobileMenu() {
+            document.getElementById('menuDropdown').classList.remove('active');
+            document.getElementById('menuOverlay').classList.remove('active');
+        }
+
+        // Show sidebar on desktop when dashboard is visible
+        const dashboardObserver = new MutationObserver(() => {
+            const dashboard = document.getElementById('dashboardCard');
+            const sidebar = document.getElementById('desktopSidebar');
+            const bottomNav = document.getElementById('mobileBottomNav');
+
+            if (dashboard && !dashboard.classList.contains('hidden')) {
+                if (window.innerWidth >= 768 && sidebar) {
+                    sidebar.style.display = 'flex';
+                }
+                if (bottomNav) {
+                    bottomNav.style.display = 'flex';
+                }
+            } else {
+                if (sidebar) sidebar.style.display = 'none';
+                if (bottomNav) bottomNav.style.display = 'none';
+            }
+        });
+
+        const dashboardCard = document.getElementById('dashboardCard');
+        if (dashboardCard) {
+            dashboardObserver.observe(dashboardCard, { attributes: true, attributeFilter: ['class'] });
+        }
+
+        // Update sidebar school name when branding loads
+        const originalApplyBranding = window.applyBranding || function () { };
+        window.applyBranding = function (schoolData) {
+            originalApplyBranding(schoolData);
+            const sidebarName = document.getElementById('sidebarSchoolName');
+            if (sidebarName && schoolData.name) {
+                sidebarName.textContent = schoolData.name;
+            }
+        };
+        // =====================================================
+        // ARRIVAL ACTIVITY & MOVEMENT HISTORY
+        // =====================================================
+
+        function getTodayDateStr() {
+            const now = new Date();
+            return now.getFullYear() + '-' +
+                String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                String(now.getDate()).padStart(2, '0');
+        }
+
+        async function loadAllChildArrivalStatus(children) {
+            const schoolId = sessionStorage.getItem('schoolId');
+            if (!schoolId || !children || children.length === 0) return;
+
+            const today = getTodayDateStr();
+
+            try {
+                // Get arrivals for today
+                const arrSnap = await db.collection('arrivals')
+                    .where('schoolId', '==', schoolId)
+                    .where('date', '==', today)
+                    .get();
+
+                const arrivalsByStudent = {};
+                arrSnap.docs.forEach(doc => {
+                    const d = doc.data();
+                    arrivalsByStudent[d.studentId] = d;
+                });
+
+                // Get home drop-offs for today
+                const dropSnap = await db.collection('home_dropoffs')
+                    .where('schoolId', '==', schoolId)
+                    .where('date', '==', today)
+                    .get();
+
+                const dropoffsByStudent = {};
+                dropSnap.docs.forEach(doc => {
+                    const d = doc.data();
+                    dropoffsByStudent[d.studentId] = d;
+                });
+
+                // Update each child card
+                children.forEach(child => {
+                    const el = document.getElementById('arrival-' + child.id);
+                    if (!el) return;
+
+                    const arrival = arrivalsByStudent[child.id];
+                    const dropoff = dropoffsByStudent[child.id];
+
+                    if (dropoff) {
+                        let dropTime = '';
+                        if (dropoff.dropoffTime) {
+                            const t = dropoff.dropoffTime.toDate ? dropoff.dropoffTime.toDate() : new Date(dropoff.dropoffTime);
+                            dropTime = t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                        }
+                        el.innerHTML = `
+                            <span style="display:inline-block; font-size:0.75rem; padding:2px 8px; border-radius:10px; background:#dbeafe; color:#1e40af; font-weight:600;">
+                                🏠 Dropped home ${dropTime ? 'at ' + dropTime : ''}
+                            </span>
+                            <a href="#" onclick="event.preventDefault(); event.stopPropagation(); showMovementHistory('${child.id}', '${escapeHtml(child.name).replace(/'/g, "\\'")}')" style="font-size:0.7rem; margin-left:4px; color:#6366f1;">History</a>
+                        `;
+                    } else if (arrival) {
+                        let arrTime = '';
+                        if (arrival.arrivalTime) {
+                            const t = arrival.arrivalTime.toDate ? arrival.arrivalTime.toDate() : new Date(arrival.arrivalTime);
+                            arrTime = t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                        }
+                        const method = arrival.method === 'bus' ? '🚌' : '🚶';
+                        const lateBadge = arrival.isLate
+                            ? `<span style="font-size:0.7rem; color:#dc2626; font-weight:700; margin-left:4px;">(${arrival.minutesLate}m late)</span>`
+                            : '';
+                        el.innerHTML = `
+                            <span style="display:inline-block; font-size:0.75rem; padding:2px 8px; border-radius:10px; background:#dcfce7; color:#166534; font-weight:600;">
+                                ${method} Arrived ${arrTime ? 'at ' + arrTime : ''} ${lateBadge}
+                            </span>
+                            <a href="#" onclick="event.preventDefault(); event.stopPropagation(); showMovementHistory('${child.id}', '${escapeHtml(child.name).replace(/'/g, "\\'")}')" style="font-size:0.7rem; margin-left:4px; color:#6366f1;">History</a>
+                        `;
+                    } else {
+                        el.innerHTML = `
+                            <span style="display:inline-block; font-size:0.75rem; padding:2px 8px; border-radius:10px; background:#fef3c7; color:#92400e; font-weight:600;">
+                                ⏳ Not yet arrived
+                            </span>
+                            <a href="#" onclick="event.preventDefault(); event.stopPropagation(); showMovementHistory('${child.id}', '${escapeHtml(child.name).replace(/'/g, "\\'")}')" style="font-size:0.7rem; margin-left:4px; color:#6366f1;">History</a>
+                        `;
+                    }
+                });
+
+            } catch (err) {
+                console.warn('Error loading arrival status:', err);
+            }
+        }
+
+        async function showMovementHistory(studentId, studentName) {
+            // Create history modal if it doesn't exist
+            let modal = document.getElementById('movementHistoryModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'movementHistoryModal';
+                modal.innerHTML = `
+                    <div style="position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; display:flex; align-items:flex-end; justify-content:center;" onclick="this.parentElement.style.display='none'">
+                        <div style="background:white; border-radius:16px 16px 0 0; width:100%; max-width:500px; max-height:80vh; overflow-y:auto; padding:1.25rem;" onclick="event.stopPropagation()">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                                <h3 id="historyTitle" style="margin:0; font-size:1.1rem;">Movement History</h3>
+                                <button onclick="document.getElementById('movementHistoryModal').style.display='none'" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:#94a3b8;">×</button>
+                            </div>
+                            <div id="historyContent">Loading...</div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            modal.style.display = 'block';
+            document.getElementById('historyTitle').textContent = `📋 ${studentName} - History`;
+            const content = document.getElementById('historyContent');
+            content.innerHTML = '<p style="text-align:center; color:#94a3b8;">Loading...</p>';
+
+            const schoolId = sessionStorage.getItem('schoolId');
+
+            try {
+                const todayStr = getTodayDateStr();
+
+                // Fetch ALL arrivals for this student (no date limit)
+                const arrSnap = await db.collection('arrivals')
+                    .where('schoolId', '==', schoolId)
+                    .where('studentId', '==', studentId)
+                    .get();
+
+                // Fetch ALL departures
+                const depSnap = await db.collection('departures')
+                    .where('schoolId', '==', schoolId)
+                    .where('studentId', '==', studentId)
+                    .get();
+
+                // Fetch ALL home drop-offs
+                const dropSnap = await db.collection('home_dropoffs')
+                    .where('schoolId', '==', schoolId)
+                    .where('studentId', '==', studentId)
+                    .get();
+
+                // Merge all events
+                const events = [];
+
+                arrSnap.docs.forEach(doc => {
+                    const d = doc.data();
+                    events.push({
+                        date: d.date,
+                        type: 'arrival',
+                        time: d.arrivalTime,
+                        method: d.method,
+                        busName: d.busName,
+                        isLate: d.isLate,
+                        minutesLate: d.minutesLate
+                    });
+                });
+
+                depSnap.docs.forEach(doc => {
+                    const d = doc.data();
+                    events.push({
+                        date: d.date,
+                        type: 'departure',
+                        time: d.departureTime,
+                        busName: d.busName
+                    });
+                });
+
+                dropSnap.docs.forEach(doc => {
+                    const d = doc.data();
+                    events.push({
+                        date: d.date,
+                        type: 'home_dropoff',
+                        time: d.dropoffTime,
+                        busName: d.busName
+                    });
+                });
+
+                if (events.length === 0) {
+                    content.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:2rem;">No movement records yet.</p>';
+                    return;
+                }
+
+                // Group by date
+                const byDate = {};
+                events.forEach(e => {
+                    if (!byDate[e.date]) byDate[e.date] = [];
+                    byDate[e.date].push(e);
+                });
+
+                // Sort dates descending
+                const sortedDates = Object.keys(byDate).sort().reverse();
+
+                let html = '';
+                sortedDates.forEach(date => {
+                    const dateObj = new Date(date + 'T12:00:00');
+                    const dateLabel = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                    const isToday = date === todayStr;
+
+                    html += `<div style="margin-bottom:1rem;">
+                        <div style="font-size:0.8rem; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:0.5rem; padding-bottom:0.25rem; border-bottom:1px solid #e2e8f0;">
+                            ${isToday ? '📅 Today' : dateLabel}
+                        </div>`;
+
+                    // Sort events by time within the day
+                    byDate[date].sort((a, b) => {
+                        const tA = a.time ? (a.time.seconds || 0) : 0;
+                        const tB = b.time ? (b.time.seconds || 0) : 0;
+                        return tA - tB;
+                    });
+
+                    byDate[date].forEach(e => {
+                        let timeStr = '';
+                        if (e.time) {
+                            const t = e.time.toDate ? e.time.toDate() : new Date(e.time);
+                            timeStr = t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                        }
+
+                        let icon, label, color, bg;
+                        if (e.type === 'arrival') {
+                            icon = e.method === 'bus' ? '🚌' : '🚶';
+                            label = `Arrived ${e.method === 'bus' && e.busName ? 'via ' + e.busName : '(manual)'}`;
+                            if (e.isLate) label += ` — ${e.minutesLate}m late`;
+                            color = e.isLate ? '#dc2626' : '#166534';
+                            bg = e.isLate ? '#fee2e2' : '#dcfce7';
+                        } else if (e.type === 'departure') {
+                            icon = '🚌';
+                            label = `Departed ${e.busName || 'by bus'}`;
+                            color = '#1e40af';
+                            bg = '#dbeafe';
+                        } else {
+                            icon = '🏠';
+                            label = `Dropped home ${e.busName ? 'via ' + e.busName : ''}`;
+                            color = '#4f46e5';
+                            bg = '#ede9fe';
+                        }
+
+                        html += `
+                            <div style="display:flex; align-items:center; gap:0.5rem; padding:0.4rem; border-radius:8px; background:${bg}; margin-bottom:4px;">
+                                <span style="font-size:1rem;">${icon}</span>
+                                <div style="flex:1;">
+                                    <span style="font-size:0.85rem; font-weight:600; color:${color};">${label}</span>
+                                </div>
+                                <span style="font-size:0.75rem; color:#64748b; font-weight:500;">${timeStr}</span>
+                            </div>
+                        `;
+                    });
+
+                    html += '</div>';
+                });
+
+                content.innerHTML = html;
+
+            } catch (err) {
+                console.error('Error loading history:', err);
+                content.innerHTML = '<p style="text-align:center; color:#ef4444;">Error loading history</p>';
+            }
+        }
+
     </script>
 </body>
 
